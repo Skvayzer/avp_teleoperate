@@ -95,6 +95,7 @@ class OpenTeleVision:
         # print("camera moved", event.value["matrix"].shape, event.value["matrix"])
 
     async def on_hand_move(self, event, session, fps=60):
+        # print("HAND MOVE!!!!!!!!", event.value["leftHand"])
         try:
             # with self.left_hand_shared.get_lock():  # Use the lock to ensure thread-safe updates
             #     self.left_hand_shared[:] = event.value["leftHand"]
@@ -125,7 +126,7 @@ class OpenTeleVision:
             await asyncio.sleep(1)
     
     async def main_image(self, session, fps=60):
-        session.upsert @ Hands(fps=fps, stream=True, key="hands", showLeft=False, showRight=False)
+        session.upsert @ Hands(fps=fps, stream=True, key="hands", showLeft=True, showRight=True)
         while True:
             # aspect = self.aspect_shared.value
             display_image = self.img_array
@@ -188,6 +189,56 @@ class OpenTeleVision:
             to="bgChildren",
             )
             await asyncio.sleep(0.03)
+
+    async def test_pattern(self, session, fps=60):
+        """Test method to display a dynamic pattern in VR"""
+        session.upsert @ Hands(fps=fps, stream=True, key="hands", showLeft=True, showRight=True)
+        
+        # Create initial test pattern
+        test_pattern = np.zeros((self.img_height, self.img_width, 3), dtype=np.uint8)
+        time_counter = 0
+        
+        while True:
+            # Update pattern based on time
+            time_counter += 1
+            for i in range(0, self.img_height, 20):
+                # Create dynamic colors based on time and position
+                r = int(127 + 127 * np.sin(time_counter/10 + i/50))
+                g = int(127 + 127 * np.sin(time_counter/15 + i/30))
+                b = int(127 + 127 * np.sin(time_counter/20 + i/40))
+                test_pattern[i:i+10, :] = [r, g, b]
+            
+            # Add a moving vertical line
+            x_pos = int(self.img_width/2 + self.img_width/4 * np.sin(time_counter/30))
+            test_pattern[:, x_pos:x_pos+5] = [255, 255, 255]
+            
+            session.upsert(
+            [ImageBackground(
+                test_pattern,
+                format="jpeg",
+                quality=80,
+                key="left-image",
+                interpolate=True,
+                aspect=1.66667,
+                height = 8,
+                position=[0, -1, 3],
+                layers=1
+            ),
+            ImageBackground(
+                test_pattern,
+                format="jpeg",
+                quality=80,
+                key="right-image",
+                interpolate=True,
+                aspect=1.66667,
+                height = 8,
+                position=[0, -1, 3],
+                layers=2
+            )],
+            to="bgChildren",
+            )
+            await asyncio.sleep(0.03)
+
 
     @property
     def left_hand(self):

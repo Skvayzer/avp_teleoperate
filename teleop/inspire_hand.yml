@@ -1,6 +1,6 @@
 left:
   type: vector
-  urdf_path: inspire_hand/inspire_hand_left.urdf
+  urdf_path: /home/cosmos/VScodeProjects/MiraiVision/mbzuai/Robotics/teleoperation/Cerebro-Control/avp_teleoperate/assets/inspire_hand/inspire_hand_left.urdf
   wrist_link_name: "L_hand_base_link"
 
   # Target refers to the retargeting target, which is the robot hand
@@ -18,7 +18,7 @@ left:
 
 right:
   type: vector
-  urdf_path: inspire_hand/inspire_hand_right.urdf
+  urdf_path: /home/cosmos/VScodeProjects/MiraiVision/mbzuai/Robotics/teleoperation/Cerebro-Control/avp_teleoperate/assets/inspire_hand/inspire_hand_right.urdf
   wrist_link_name: "R_hand_base_link"
 
   # Target refers to the retargeting target, which is the robot hand
