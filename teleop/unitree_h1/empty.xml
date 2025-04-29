@@ -7,7 +7,12 @@
     <visual>
         <headlight diffuse="0.6 0.6 0.6" ambient="0.3 0.3 0.3" specular="0 0 0"/>
         <rgba haze="0.15 0.25 0.35 1"/>
-        <global azimuth="160" elevation="-20"/>
+        <global azimuth="160" elevation="-20" offwidth="800" offheight="600"/>
+        <!-- Added fog for better background appearance -->
+        <map fogstart="3" fogend="10" znear="0.1" zfar="50"/>
+        <!-- Enhanced lighting -->
+        <quality shadowsize="4096"/>
+        <scale forcewidth="0.01" contactwidth="0.05" contactheight="0.05"/>
     </visual>
 
     <asset>
@@ -16,11 +21,14 @@
         <material name="grid" texture="grid" texrepeat="1 1" texuniform="true"/>
         <material name="deep_green" rgba="0.0 0.4 0.2 1"/>
         <material name="white_desk" rgba="0.9 0.9 0.9 1"/>
+        <!-- Added skybox texture for better environment -->
+        <texture name="skybox" type="skybox" builtin="gradient" rgb1="0.3 0.5 0.7" rgb2="0.1 0.1 0.3" width="512" height="512"/>
     </asset>
 
     <worldbody>
         <light pos="0 0 3" directional="true"/>
-        <geom name="floor" size="1 1 0.01" type="plane" material="grid"/>
+        <light pos="2 2 2" dir="-1 -1 -1" directional="true" diffuse="0.3 0.3 0.3" specular="0.1 0.1 0.1"/>
+        <geom name="floor" size="5 5 0.01" type="plane" material="grid"/>
 
         <!-- White Desk - rotated 90 degrees (quat: "0.7071 0 0 0.7071" represents 90-degree rotation around Z) -->
 

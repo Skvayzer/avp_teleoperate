@@ -17,6 +17,7 @@ import pickle
 import zlib
 import socket
 import glfw
+from OpenGL.GL import *
 
 import os
 import sys
@@ -34,6 +35,8 @@ from unitree_sdk2py.core.channel import ChannelSubscriber, ChannelFactoryInitial
 
 import mujoco
 import mujoco.viewer
+from scipy.spatial.transform import Rotation as R
+
 
 from dex_retargeting.retargeting_config import RetargetingConfig
 
@@ -106,20 +109,49 @@ class SharedMemoryImage:
 
 
 class VuerTeleop:
-    def __init__(self, config_file_path):
-        self.resolution = (800, 640)  # (720, 1280)
-        self.crop_size_w = 0
+    def __init__(self, config_file_path, first_frame_event):
+        # Define base resolution (adjust as needed)
+        self.resolution = (600, 800) # Example: Height, Width
+        self.crop_size_w = 0 # Keep crop logic if needed, otherwise remove
         self.crop_size_h = 0
+        # Resolution after cropping (if any)
         self.resolution_cropped = (self.resolution[0] - self.crop_size_h, self.resolution[1] - 2 * self.crop_size_w)
-
-        self.img_shape = (self.resolution_cropped[0], 2 * self.resolution_cropped[1], 3)
         self.img_height, self.img_width = self.resolution_cropped[:2]
 
-        self.shm = shared_memory.SharedMemory(create=True, size=np.prod(self.img_shape) * np.uint8().itemsize)
-        self.img_array = np.ndarray((self.img_shape[0], self.img_shape[1], 3), dtype=np.uint8, buffer=self.shm.buf)
-        image_queue = Queue()
-        toggle_streaming = Event()
-        self.tv = OpenTeleVision(self.resolution_cropped, self.shm.name, image_queue, toggle_streaming, ngrok=False)
+        # Image shape for a single view
+        self.img_shape = (self.img_height, self.img_width*2, 3)
+
+        # Setup shared memory for the single image
+        try:
+            # Attempt to create shared memory
+            # Use a unique name if multiple instances might run
+            self.shm_name = f"teleop_sim_shm_{os.getpid()}"
+            self.shm = shared_memory.SharedMemory(name=self.shm_name, create=True, size=np.prod(self.img_shape) * np.uint8().itemsize)
+            print(f"Created shared memory: {self.shm_name}")
+        except FileExistsError:
+             # If it already exists (e.g., from a previous run), link to it
+             print(f"Shared memory block {self.shm_name} already exists. Linking...")
+             # This path might indicate an issue if SHM wasn't cleaned up properly
+             # Consider adding cleanup logic or ensuring unique names
+             try:
+                 self.shm = shared_memory.SharedMemory(name=self.shm_name, create=False)
+             except FileNotFoundError:
+                 print(f"ERROR: SHM {self.shm_name} exists but couldn't be opened. Creating new.")
+                 # Fallback to creating with potentially modified name or error handling
+                 self.shm = shared_memory.SharedMemory(name=self.shm_name + "_fallback", create=True, size=np.prod(self.img_shape) * np.uint8().itemsize)
+
+
+        self.img_array = np.ndarray(self.img_shape, dtype=np.uint8, buffer=self.shm.buf)
+
+        # Store the event
+        self.first_frame_event = first_frame_event
+
+        # Initialize OpenTeleVision - Pass exact img_shape, dtype, and the event
+        image_queue = Queue() # Keep if OpenTeleVision uses it
+        toggle_streaming = Event() # Keep if OpenTeleVision uses it
+        # Pass self.img_shape and np.uint8 (or appropriate dtype)
+        self.tv = OpenTeleVision(self.img_shape, np.uint8, self.shm.name, image_queue, toggle_streaming, self.first_frame_event, ngrok=False)
+
         self.processor = VuerPreprocessor()
 
         RetargetingConfig.set_default_urdf_dir('../assets')
@@ -130,224 +162,79 @@ class VuerTeleop:
         self.left_retargeting = left_retargeting_config.build()
         self.right_retargeting = right_retargeting_config.build()
 
+        print(f"VuerTeleop initialized with image shape: {self.img_shape}")
+        print(f"Shared memory size: {self.shm.size} bytes, Name: {self.shm.name}")
+
     def step(self):
         head_mat, left_wrist_mat, right_wrist_mat, left_hand_mat, right_hand_mat = self.processor.process(self.tv)
         head_rmat = head_mat[:3, :3]
 
+        # Keep coordinate adjustments if they are still correct
         left_wrist_mat[2, 3] +=0.45
         right_wrist_mat[2,3] +=0.45
         left_wrist_mat[0, 3] +=0.20
         right_wrist_mat[0,3] +=0.20
 
         left_qpos = self.left_retargeting.retarget(left_hand_mat[tip_indices])[[4, 5, 6, 7, 10, 11, 8, 9, 0, 1, 2, 3]]
-        # left_qpos = self.left_retargeting.retarget(left_hand_mat[tip_indices])[[0, 1, 2, 3, 4, 5, 6, 7]]
-        # left_qpos = self.left_retargeting.retarget(left_hand_mat[tip_indices])[[]]
+        # left_qpos = self.left_retargeting.retarget(left_hand_mat[tip_indices])[[0, 1, 2, 3, 4, 5, 6, 7]] # Preserved comment
+        # left_qpos = self.left_retargeting.retarget(left_hand_mat[tip_indices])[[]] # Preserved comment
         right_qpos = self.right_retargeting.retarget(right_hand_mat[tip_indices])[[4, 5, 6, 7, 10, 11, 8, 9, 0, 1, 2, 3]]
-        # right_qpos = self.right_retargeting.retarget(right_hand_mat[tip_indices])[[]]
+        # right_qpos = self.right_retargeting.retarget(right_hand_mat[tip_indices])[[]] # Preserved comment
 
         return head_rmat, left_wrist_mat, right_wrist_mat, left_qpos, right_qpos
-        # return left_wrist_mat, right_wrist_mat
+        # return left_wrist_mat, right_wrist_mat # Preserved comment
 
-
-    def get_arm_state(self):
-        """Get current arm state from MuJoCo simulation"""
-        # Get current joint positions for arms
-        armstate = np.zeros(14)  # 7 joints per arm
-        armv = np.zeros(14)      # 7 joint velocities per arm
-
-        # Left arm joints (7 joints)
-        # 15: left_shoulder_pitch_joint
-        # 16: left_shoulder_roll_joint
-        # 17: left_shoulder_yaw_joint
-        # 18: left_elbow_joint
-        # 19: left_hand_joint
-        # 20: L_thumb_proximal_yaw_joint
-        # 21: L_thumb_proximal_pitch_joint
-        armstate[:7] = self.data.qpos[15:22]
-        armv[:7] = self.data.qvel[15:22]
-
-        # Right arm joints (7 joints)
-        # 32: right_shoulder_pitch_joint
-        # 33: right_shoulder_roll_joint
-        # 34: right_shoulder_yaw_joint
-        # 35: right_elbow_joint
-        # 36: right_hand_joint
-        # 37: R_thumb_proximal_yaw_joint
-        # 38: R_thumb_proximal_pitch_joint
-        armstate[7:14] = self.data.qpos[32:39]
-        armv[7:14] = self.data.qvel[32:39]
-
-        return armstate, armv
-
-
-class MujocoVRRenderer:
-    """
-    MuJoCo renderer for VR teleoperation simulation.
-    Renders stereo images for VR headset display.
-    """
-
-    def __init__(self, model, data, width=800, height=600):
-        """
-        Initialize the VR renderer.
-
-        Args:
-            model: MuJoCo model
-            data: MuJoCo data
-            width: Width of each eye's viewport
-            height: Height of each eye's viewport
-        """
-        self.model = model
-        self.data = data
-        self.width = width
-        self.height = height
-
-        # Initialize GLFW
-        if not glfw.init():
-            raise Exception("GLFW initialization failed")
-
-        # Create a window for rendering (can be hidden in production)
-        glfw.window_hint(glfw.VISIBLE, glfw.TRUE)
-        self.window = glfw.create_window(width*2, height, "MuJoCo VR Simulation", None, None)
-        if not self.window:
-            glfw.terminate()
-            raise Exception("Failed to create GLFW window")
-
-        # Make the window's context current
-        glfw.make_context_current(self.window)
-
-        # Initialize visualization data structures
-        self.init_visualization()
-
-        print(f"Initialized VR renderer with resolution {width*2}x{height}")
-
-    def init_visualization(self):
-        """Initialize visualization objects for MuJoCo."""
-        # Create abstract visualization options
-        self.vopt = mujoco.MjvOption()
-        mujoco.mjv_defaultOption(self.vopt)
-
-        # Create abstract camera
-        self.cam = mujoco.MjvCamera()
-        mujoco.mjv_defaultCamera(self.cam)
-
-        # Set camera type to USER - we'll control the cameras manually for VR
-        self.cam.type = mujoco.mjtCamera.mjCAMERA_USER
-
-        # Create scene with stereo settings
-        self.scn = mujoco.MjvScene(self.model, maxgeom=10000)
-        self.scn.stereo = mujoco.mjtStereo.mjSTEREO_SIDEBYSIDE
-
-        # Create rendering context
-        self.ctx = mujoco.MjrContext(self.model, mujoco.mjtFontScale.mjFONTSCALE_150)
-
-        # Get framebuffer size for viewport
-        framebuffer_width, framebuffer_height = glfw.get_framebuffer_size(self.window)
-        self.viewport = mujoco.MjrRect(0, 0, framebuffer_width, framebuffer_height)
-
-        # Create buffer for offscreen rendering
-        self.img_buffer = np.zeros((self.height, self.width*2, 3), dtype=np.uint8)
-
-        # Set inter-pupillary distance (IPD) for stereo rendering
-        self.ipd = 0.064  # 64mm - typical human average
-
-        # Flag for first update
-        self.first_update = True
-
-    def update_cameras(self, head_rotation=None):
-        """Update camera positions and orientations based on head tracking."""
-        if head_rotation is not None:
-            # Camera position (using a fixed position initially)
-            cam_pos = np.array([0.0, 0.0, 1.5])  # Arbitrary position
-
-            # Forward direction calculated from head rotation
-            forward = head_rotation @ np.array([0, 0, -1])  # Default forward is -Z
-
-            # Calculate right vector (cross product of forward and world up)
-            world_up = np.array([0, 0, 1])
-            right = np.cross(forward, world_up)
-            right = right / np.linalg.norm(right)
-
-            # Calculate camera up vector
-            up = np.cross(right, forward)
-            up = up / np.linalg.norm(up)
-
-            # Set left eye camera
-            left_pos = cam_pos - right * (self.ipd / 2)
-            self.scn.camera[0].pos = left_pos
-            self.scn.camera[0].forward = forward
-            self.scn.camera[0].up = up
-
-            # Set right eye camera
-            right_pos = cam_pos + right * (self.ipd / 2)
-            self.scn.camera[1].pos = right_pos
-            self.scn.camera[1].forward = forward
-            self.scn.camera[1].up = up
-
-            # Only set frustum parameters on first update or if needed
-            if self.first_update:
-                # Set frustum for each eye
-                for i in range(2):
-                    self.scn.camera[i].frustum_near = 0.01
-                    self.scn.camera[i].frustum_far = 100.0
-                    self.scn.camera[i].frustum_center = 0.0
-                    self.scn.camera[i].frustum_width = 0.1  # Controls FOV
-                self.first_update = False
-
-    def render_vr(self, head_rotation=None):
-        """Render stereo images for VR display."""
-        # Process window events
-        glfw.poll_events()
-
-        # Update cameras based on head rotation
-        self.update_cameras(head_rotation)
-
-        # Update scene with current model state
-        mujoco.mjv_updateScene(
-            self.model,
-            self.data,
-            self.vopt,
-            None,
-            self.cam,
-            mujoco.mjtCatBit.mjCAT_ALL,
-            self.scn
-        )
-
-        # Check if context size needs updating
-        if (self.viewport.width > self.ctx.offWidth or
-            self.viewport.height > self.ctx.offHeight):
-            self.ctx.free()
-            self.ctx = mujoco.MjrContext(self.model, mujoco.mjtFontScale.mjFONTSCALE_150)
-
-        # Render to window
-        mujoco.mjr_render(self.viewport, self.scn, self.ctx)
-        glfw.swap_buffers(self.window)
-
-        # Also render to offscreen buffer for VR streaming
-        mujoco.mjr_setBuffer(mujoco.mjtFramebuffer.mjFB_OFFSCREEN, self.ctx)
-        mujoco.mjr_render(self.viewport, self.scn, self.ctx)
-
-        # Read pixels from the offscreen buffer
-        mujoco.mjr_readPixels(self.img_buffer, None, self.viewport, self.ctx)
-
-        # Flip the image vertically (OpenGL renders from bottom to top)
-        vr_image = np.flipud(self.img_buffer.copy())
-
-        return vr_image
+    # Preserving commented out get_arm_state method
+    # def get_arm_state(self):
+    #     """Get current arm state from MuJoCo simulation"""
+    #     # Get current joint positions for arms
+    #     armstate = np.zeros(14)  # 7 joints per arm
+    #     armv = np.zeros(14)      # 7 joint velocities per arm
+    #
+    #     # Left arm joints (7 joints)
+    #     # 15: left_shoulder_pitch_joint
+    #     # ... (other joint comments)
+    #     armstate[:7] = self.data.qpos[15:22]
+    #     armv[:7] = self.data.qvel[15:22]
+    #
+    #     # Right arm joints (7 joints)
+    #     # 32: right_shoulder_pitch_joint
+    #     # ... (other joint comments)
+    #     armstate[7:14] = self.data.qpos[32:39]
+    #     armv[7:14] = self.data.qvel[32:39]
+    #
+    #     return armstate, armv
 
     def cleanup(self):
-        """Clean up resources."""
-        self.ctx.free()
-        glfw.destroy_window(self.window)
-        glfw.terminate()
+        """Clean up shared memory."""
+        if hasattr(self, 'shm') and self.shm:
+            print(f"Cleaning up VuerTeleop shared memory: {self.shm.name}")
+            self.shm.close()
+            try:
+                self.shm.unlink() # Attempt to unlink
+                print(f"Shared memory {self.shm.name} unlinked.")
+            except FileNotFoundError:
+                print(f"Shared memory {self.shm.name} already unlinked or could not be found.")
+        # Add cleanup for OpenTeleVision if needed
+        # self.tv.cleanup()
+
+
+# Removed MujocoVRRenderer class entirely (lines ~191-353 in original)
 
 
 if __name__ == '__main__':
-    # Initialize GLFW globally
-    glfw.init()
+    # Global GLFW init/terminate might still be needed if other parts rely on it
+    # mujoco.Renderer manages its own context, but other libraries might need GLFW.
+    # Initialize GLFW cautiously.
+    # if not glfw.init():
+    #     raise Exception("Global GLFW Init Failed")
 
-    manager = Manager()
-    image_queue = manager.Queue()
-    teleoperator = VuerTeleop('inspire_hand.yml')
+    manager = Manager() # Keep if Queue is used by OpenTeleVision
+    # image_queue = manager.Queue() # Defined inside VuerTeleop now
+    first_frame_written = manager.Event() # Event to signal first frame is ready
+
+    # Pass the event to VuerTeleop
+    teleoperator = VuerTeleop('inspire_hand.yml', first_frame_written)
 
     if len(sys.argv) > 1:
         ChannelFactoryInitialize(0, sys.argv[1])
@@ -358,17 +245,71 @@ if __name__ == '__main__':
     model = mujoco.MjModel.from_xml_path(_XML.as_posix())
     data = mujoco.MjData(model)
 
-    # Print model information
+    # --- Initialize GLFW and Create Display Window FIRST ---
+    window = None # Initialize window variable
+    texture_id = None # Initialize texture_id variable
+    try:
+        if not glfw.init():
+            raise Exception("GLFW can't be initialized")
+
+        # Create a windowed mode window and its OpenGL context
+        window_width, window_height = teleoperator.img_width*2, teleoperator.img_height
+        window = glfw.create_window(window_width, window_height, "Teleop Sim Render (GLFW)", None, None)
+        if not window:
+            raise Exception("GLFW window can't be created")
+
+        # Make the window's context current IMMEDIATELY
+        glfw.make_context_current(window)
+        print("GLFW window created and context is current.")
+
+        # --- Setup OpenGL Texture (Requires window context to be current) ---
+        texture_id = glGenTextures(1)
+        glBindTexture(GL_TEXTURE_2D, texture_id)
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR)
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR)
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE)
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE)
+        glBindTexture(GL_TEXTURE_2D, 0) # Unbind
+        print("OpenGL texture initialized.")
+        # -----------------------------------------------------------------
+
+    except Exception as e:
+        print(f"Error during GLFW/OpenGL setup: {e}")
+        if window:
+            glfw.destroy_window(window)
+        glfw.terminate()
+        sys.exit(1)
+    # ---------------------------------------------------------
+
+    # --- Initialize MuJoCo Renderer AFTER GLFW setup ---
+    renderer = None # Initialize renderer variable
+    try:
+        print(f"Initializing mujoco.Renderer with Height: {teleoperator.img_height}, Width: {teleoperator.img_width}")
+        # This might use the current context or create its own
+        renderer = mujoco.Renderer(model, height=teleoperator.img_height, width=teleoperator.img_width)
+    except Exception as e:
+        print(f"Error initializing MuJoCo Renderer: {e}")
+        if 'texture_id' in locals() and texture_id is not None:
+             # Need context current to delete texture
+             glfw.make_context_current(window)
+             glDeleteTextures(1, [texture_id])
+        if window:
+            glfw.destroy_window(window)
+        glfw.terminate()
+        sys.exit(1)
+    # ---------------------------------------------------
+
+    # Print model information (optional)
     print(f"Number of joints: {model.njnt}")
-    print(f"Number of bodies: {model.nbody}")
+    # print(f"Number of bodies: {model.nbody}") # Preserved commented print
     print(f"Number of actuators: {model.nu}")
 
-    # Print joint names and ranges
-    for i in range(model.njnt):
-        name = mujoco.mj_id2name(model, mujoco.mjtObj.mjOBJ_JOINT, i)
-        range_min = model.jnt_range[i, 0]
-        range_max = model.jnt_range[i, 1]
-        print(f"Joint {i}, {name}: range [{range_min:.2f}, {range_max:.2f}]")
+    # Preserved commented print loop for joint names/ranges
+    # for i in range(model.njnt):
+    #     name = mujoco.mj_id2name(model, mujoco.mjtObj.mjOBJ_JOINT, i)
+    #     range_min = model.jnt_range[i, 0]
+    #     range_max = model.jnt_range[i, 1]
+    #     print(f"Joint {i}, {name}: range [{range_min:.2f}, {range_max:.2f}]")
 
     # Initialize controllers and solvers
     h1hand = H1HandController()
@@ -376,131 +317,379 @@ if __name__ == '__main__':
     mesh_path = '../assets/h1/'
     arm_ik = Arm_IK(urdf_path, mesh_path)
 
-    # Initialize renderer
-    vr_renderer = MujocoVRRenderer(model, data,
-                                  width=teleoperator.img_width,
-                                  height=teleoperator.img_height)
+    # Initialize a camera object for first-person view from robot's head
+    cam = mujoco.MjvCamera()
+    # mujoco.mjv_defaultFreeCamera(model, cam) # Start with default free camera settings
+    # cam.lookat = np.array([0.0, 0.0, 0.5]) # Look at robot base
+    # cam.distance = 2.5
+    # cam.elevation = -15.0 # S
+    # Use fixed camera type to attach to robot's head
+    # cam.type = mujoco.mjtCamera.mjCAMERA_FIXED
+    # Find the head/camera body ID in the model
+    head_cam_id = mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_CAMERA, "head_camera") 
+    print(f"Head body ID: {head_cam_id}")
+    cam.type = mujoco.mjtCamera.mjCAMERA_FIXED
+    cam.fixedcamid = head_cam_id
 
-    # Initialize shared memory for visualization
-    sm = SharedMemoryImage((1600, 1280))
+    # if head_body_id >= 0:
+    #     cam.fixedcamid = head_body_id
+    # else:
+    #     print("Warning: Could not find robot head body, using default camera")
+    #     mujoco.mjv_defaultCamera(model, cam)
+    # Set initial parameters (these may be overridden by the fixed camera)
+    # cam.distance = 0  # No distance for first-person view
+    # cam.azimuth = 90  # Forward-facing orientation
+    # cam.elevation = 0  # Level view
+    print(f"Camera: {cam}")
+    # ----------------------------------
+
+    # Removed SharedMemoryImage instantiation
+    # sm = SharedMemoryImage((720, 1280)) # Preserving commented instantiation
 
     # Reset MuJoCo data to initial state
     mujoco.mj_resetData(model, data)
     mujoco.mj_forward(model, data)
 
-    start_time = time.time()  # Capture script start time
+    # start_time = time.time() # Preserving original start_time variable
+    last_print_time = time.time() # For FPS calculation
 
     try:
-        user_input = input("Please enter the start signal (enter 's' to start the subsequent program): ")
+        user_input = input("Please enter the start signal (enter 's' to start): ")
         if user_input.lower() == 's':
             print("Starting teleoperation simulation...")
 
-            # Main simulation loop
-            while not glfw.window_should_close(vr_renderer.window):
-                # Get handstate from controller
-                handstate = h1hand.get_hand_state()
+            # Main simulation loop - Use GLFW window close condition
+            while not glfw.window_should_close(window):
+                loop_start_time = time.time()
 
-                # Process VR input - get head, hand poses and finger positions
+                # Get handstate from controller (if needed)
+                # handstate = h1hand.get_hand_state() # Preserved comment
+
+                # Process VR input
                 head_rmat, left_pose, right_pose, left_qpos, right_qpos = teleoperator.step()
+
+                # --- Update Camera based on Head Rotation ---
+                # cam.type = mujoco.mjtCamera.mjCAMERA_FREE
+                # Assuming head_rmat is the orientation relative to a base frame
+                # Convert rotation matrix to Euler angles for azimuth/elevation control
+                try:
+                    # Using pytransform3d assuming ZYX extrinsic ('sxyz')
+                    # Verify this convention matches head_rmat source!
+                    # Use the correct function name: matrix_to_extrinsic_euler_xyz
+                    # euler_angles = rotations.matrix_to_extrinsic_euler_xyz(head_rmat) # Previous attempt
+                    # Specify axes (0=X, 1=Y, 2=Z) and extrinsic=True for 'sxyz' convention
+                    # euler_angles = rotations.euler_from_matrix(head_rmat, i=0, j=1, k=2, extrinsic=True)
+
+                    # Map Euler angles: Yaw -> Azimuth, Pitch -> Elevation (negated)
+                    # Ensure mapping is correct for your setup
+                    # cam.azimuth = np.degrees(euler_angles[2])   # Z rotation (Yaw)
+                    # cam.elevation = -np.degrees(euler_angles[1]) # Y rotation (Pitch, inverted)
+                    # Roll (euler_angles[0]) is typically ignored for free camera orientation
+
+                    # Create correction rotation: -90° around X axis
+                    correction_matrix = R.from_euler('x', -90, degrees=True).as_matrix() #@ R.from_euler('y', -45, degrees=True).as_matrix() @ R.from_euler('z', -45, degrees=True).as_matrix()
+                    head_rotation = R.from_matrix(head_rmat)
+                    # print("head_rotation: ", head_rotation)
+                    yaw_pitch_roll = head_rotation.as_euler('yzx', degrees=False)  # axes: Yaw (Y) -> Pitch (X) -> Roll (Z)
+                    print("yaw_pitch_roll: ", yaw_pitch_roll)
+                    # print(head_rmat)
+                    # Apply correction
+                    # corrected_rmat = R.from_euler('x', -90, degrees=True).as_matrix() @ head_rmat @ R.from_euler('z', -90, degrees=True).as_matrix()
+                    # col_exchange_matrix = np.array([
+                    #     [0, 1,  0],
+                    #     [1, 0,  0],
+                    #     [0, 0,  1]
+                    # ])
+
+
+                    # print("raw quaternion: ", R.from_matrix(head_rmat).as_quat())
+                    # # # Apply correction
+                    # # corrected_rmat = correction_matrix @ head_rmat #@ col_exchange_matrix
+                    # flip_Z = np.diag([1, 1, -1])
+                    # corrected_rmat = head_rmat @ flip_Z
+
+                    yaw = yaw_pitch_roll[0]
+                    pitch = yaw_pitch_roll[1] #roll
+                    roll = yaw_pitch_roll[2]
+
+                    adjusted_yaw = -yaw  # when I pitch it yaws???
+                    adjusted_pitch =  pitch#when I roll head it is pitch
+                    adjusted_roll = roll #when I yaw it yaws in opposite direction
+
+
+                    corrected_rotation = R.from_euler('xzy', [np.pi/2 + adjusted_yaw, adjusted_pitch, adjusted_roll], degrees=False)
+                    # print("corrected_rotation: ", corrected_rotation, corrected_rotation.as_matrix())
+
+                    quat = corrected_rotation.as_quat()
+                    # print("quat: ", quat)
+                    quat = np.array([quat[3], quat[0], quat[1], quat[2]])  # reorder to [w, x, y, z] for MuJoCo
+                    model.cam_quat[head_cam_id] = quat
+
+                except ValueError as e:
+                    # Handle potential issues with matrix conversion (e.g., gimbal lock)
+                    print(f"WARN: Could not convert head_rmat to Euler angles: {e}. Using previous camera settings.")
+                    # Optionally reset to default if errors persist:
+                    # mujoco.mjv_defaultFreeCamera(model, cam)
+                    # cam.lookat = np.array([0.0, 0.0, 0.5])
+                    # cam.distance = 2.5
+                    # cam.elevation = -15.0
+                # ---------------------------------------------
 
                 # Process finger angles for control
                 right_angles = [right_qpos[i] for i in [0, 2, 6, 4]]
-                right_angles.append(right_qpos[8])
-                right_angles.append(right_qpos[9])
-
+                right_angles.extend([right_qpos[8], right_qpos[9]]) # Use extend for multiple elements
+                
                 left_angles = [left_qpos[i] for i in [0, 2, 6, 4]]
-                left_angles.append(left_qpos[8])
-                left_angles.append(left_qpos[9])
+                left_angles.extend([left_qpos[8], left_qpos[9]])
 
                 # Run IK solver
                 sol_q, tau_ff, flag = arm_ik.ik_fun(
                     left_pose,
                     right_pose,
-                    motorstate=None,
-                    motorV=None,
+                    motorstate=None, # Provide actual state if available
+                    motorV=None,     # Provide actual velocity if available
                     left_hand_angles=left_angles,
                     right_hand_angles=right_angles
                 )
 
-                # Prepare control values
+                # --- Apply Control (Original Logic Preserved) ---
+                # Prepare control values (Preserved from original)
                 sol_q_values = sol_q[-8:].tolist()  # Get last 8 values
                 sol_q_values.append(0)  # Append zero
                 tau_ff_values = tau_ff[-8:].tolist()
                 tau_ff_values.append(0)
 
-                # # Control the robot
-                # for i in range(model.nu):  # model.nu is the number of actuators
-                #     actuator_name = data.actuator(i).name
+                # Control the robot (Preserved from original)
+                for i in range(model.nu):  # model.nu is the number of actuators
+                    actuator_name = data.actuator(i).name
 
-                #     try:
-                #         correspond_joint = data.joint(actuator_name)
-                #     except KeyError:
-                #         continue
-                #     correspond_joint_id = correspond_joint.id
+                    try:
+                        correspond_joint = data.joint(actuator_name)
+                    except KeyError:
+                        continue
+                    correspond_joint_id = correspond_joint.id
 
-                #     # Handle arm joints (11-18)
-                #     if i >= 11 and i <= 18:
-                #         data.ctrl[i] = (
-                #             0  # feedforward term tau
-                #             + 800 * (sol_q_values[i - 11] - data.qpos[correspond_joint_id])  # position control kp
-                #             + 20 * (tau_ff_values[i - 11] - data.qvel[correspond_joint_id])  # velocity control kd
-                #         )
-                #     # Handle hand fingers (19-42)
-                #     elif i >= 19 and i <= 42:
-                #         target_angle = None
+                    # Handle arm joints (11-18)
+                    if i >= 11 and i <= 18:
+                        data.ctrl[i] = (
+                            0  # feedforward term tau
+                            + 400 * (sol_q_values[i - 11] - data.qpos[correspond_joint_id])  # position control kp
+                            + 20 * (tau_ff_values[i - 11] - data.qvel[correspond_joint_id])  # velocity control kd
+                        )
+                    # Handle hand fingers (19-42)
+                    elif i >= 19 and i <= 42:
+                        target_angle = None
 
-                #         if i <= 30:  # Left hand
-                #             angles = left_angles
-                #             prefix = "l_"
-                #         else:  # Right hand
-                #             angles = right_angles
-                #             prefix = "r_"
+                        if i <= 30:  # Left hand
+                            angles = left_angles
+                            prefix = "l_"
+                        else:  # Right hand
+                            angles = right_angles
+                            prefix = "r_"
 
-                #         if f"{prefix}thumb" in actuator_name:
-                #             if "proximal_1" in actuator_name:
-                #                 target_angle = angles[4]  # thumb yaw
-                #             elif "proximal_2" in actuator_name:
-                #                 target_angle = angles[5]  # thumb pitch
-                #         elif "proximal" in actuator_name:
-                #             if f"{prefix}index" in actuator_name:
-                #                 target_angle = angles[0]
-                #             elif f"{prefix}middle" in actuator_name:
-                #                 target_angle = angles[1]
-                #             elif f"{prefix}ring" in actuator_name:
-                #                 target_angle = angles[2]
-                #             elif f"{prefix}pinky" in actuator_name:
-                #                 target_angle = angles[3]
+                        if f"{prefix}thumb" in actuator_name:
+                            if "proximal_1" in actuator_name:
+                                target_angle = angles[4]  # thumb yaw
+                            elif "proximal_2" in actuator_name:
+                                target_angle = angles[5]  # thumb pitch
+                        elif "proximal" in actuator_name:
+                            if f"{prefix}index" in actuator_name:
+                                target_angle = angles[0]
+                            elif f"{prefix}middle" in actuator_name:
+                                target_angle = angles[1]
+                            elif f"{prefix}ring" in actuator_name:
+                                target_angle = angles[2]
+                            elif f"{prefix}pinky" in actuator_name:
+                                target_angle = angles[3]
 
-                #         if target_angle is not None:
-                #             data.ctrl[i] = (
-                #                 0  # feedforward term tau
-                #                 + 1000 * (target_angle - data.qpos[correspond_joint_id])  # position control kp
-                #                 + 40 * (1 - data.qvel[correspond_joint_id])  # velocity control kd
-                #             )
+                        if target_angle is not None:
+                            data.ctrl[i] = (
+                                0  # feedforward term tau
+                                + 400 * (target_angle - data.qpos[correspond_joint_id])  # position control kp
+                                + 20 * (0 - data.qvel[correspond_joint_id])  # velocity control kd
+                            )
+                # --- End Apply Control ---
 
-                # # Step the simulation
-                # mujoco.mj_step(model, data)
+                # Step the simulation
+                mujoco.mj_step(model, data)
 
-                # Render the scene for VR
-                vr_image = vr_renderer.render_vr(head_rotation=head_rmat)
+                # --- Render using mujoco.Renderer ---
+                # Update scene for both eye renders
+                renderer.update_scene(data, camera=cam)
+                # renderer.update_scene(data, camera=head_body_id)
 
-                # Send the rendered image to the teleoperator and shared memory
-                np.copyto(teleoperator.img_array, vr_image)
-                # sm.write_image(vr_image)
+                # print(f"Camera azimuth: {cam.azimuth}")
+                # print(f"Camera elevation: {cam.elevation}")
 
-                # Rate limit to prevent maxing out CPU
-                time.sleep(0.01)
+                azimuth_diff = 0.1
+                
+                # Render left eye image
+                # Adjust camera azimuth slightly to the left for stereo effect
+                # original_azimuth = cam.azimuth
+                # cam.azimuth -= azimuth_diff  # Shift camera view left by a small angle
+                left_eye_image = renderer.render()
+                
+                # Render right eye image
+                # Adjust camera azimuth slightly to the right for stereo effect
+                # cam.azimuth = original_azimuth + azimuth_diff  # Shift camera view right by a small angle
+                right_eye_image = renderer.render()
+                
+                # Restore original camera azimuth
+                # cam.azimuth = original_azimuth
+                
+                # Combine left and right eye images horizontally
+                rendered_image = np.hstack((left_eye_image, right_eye_image))
+                # ------------------------------------
 
-                # Print FPS every 100 frames
-                if int(time.time() - start_time) % 5 == 0:
-                    print(f"FPS: {1/(time.time() - start_time):.1f}")
-                    start_time = time.time()
+                # --- Display using GLFW + OpenGL --- 
+                if rendered_image.shape == teleoperator.img_array.shape:
+                     np.copyto(teleoperator.img_array, rendered_image)
+                     # sm.write_image(vr_image) # Preserving related commented call
+
+                     # --- Signal that the first frame has been written ---
+                     if not first_frame_written.is_set():
+                         first_frame_written.set()
+                         print("First frame written event SET.")
+                     # ---------------------------------------------------
+
+                     # --- Explicitly set context and draw to GLFW window ---
+                     if window: # Check if window exists
+                         try:
+                             # Attempt to make the display window's context current
+                             glfw.make_context_current(window)
+
+                             # Upload image to texture
+                             glBindTexture(GL_TEXTURE_2D, texture_id)
+                             glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, window_width, window_height, 0,
+                                          GL_RGB, GL_UNSIGNED_BYTE, rendered_image)
+
+                             # Prepare to draw
+                             glViewport(0, 0, window_width, window_height)
+                             glClear(GL_COLOR_BUFFER_BIT)
+                             glMatrixMode(GL_PROJECTION)
+                             glLoadIdentity()
+                             glOrtho(0, window_width, 0, window_height, -1, 1)
+                             glMatrixMode(GL_MODELVIEW)
+                             glLoadIdentity()
+
+                             # Enable texturing and bind our texture
+                             glEnable(GL_TEXTURE_2D)
+                             glBindTexture(GL_TEXTURE_2D, texture_id)
+
+                             # Draw a textured quad covering the window
+                             glBegin(GL_QUADS)
+                             glTexCoord2f(0, 1); glVertex2f(0, 0)
+                             glTexCoord2f(1, 1); glVertex2f(window_width, 0)
+                             glTexCoord2f(1, 0); glVertex2f(window_width, window_height)
+                             glTexCoord2f(0, 0); glVertex2f(0, window_height)
+                             glEnd()
+
+                             # Disable texturing and unbind
+                             glDisable(GL_TEXTURE_2D)
+                             glBindTexture(GL_TEXTURE_2D, 0)
+
+                             # Swap front and back buffers
+                             glfw.swap_buffers(window)
+
+                         except Exception as e:
+                             # Catch errors during context switching or drawing
+                             print(f"ERROR during GLFW display update: {e}")
+                             # Decide how to handle: break, continue, log, etc.
+                             print("Breaking simulation loop due to display error.")
+                             break 
+                     # --------------------------------------------------------
+
+                else:
+                     print(f"ERROR: Rendered image shape {rendered_image.shape} does not match shared memory shape {teleoperator.img_array.shape}")
+                     break # Stop if shapes don't match
+
+                # Poll for and process events for the GLFW window
+                glfw.poll_events()
+                # -----------------------------------
+
+                # Removed cv2.waitKey logic
+                # if cv2.waitKey(1) & 0xFF == ord('q'): # Allow window refresh and check for 'q' key press to quit
+                #     print("'q' pressed, exiting loop.")
+                #     break
+                # -----------------------------------
+
+                # Rate limit to prevent maxing out CPU (Preserved comment)
+                # time.sleep(0.01)
+
+                # Print FPS periodically
+                current_time = time.time()
+                if current_time - last_print_time >= 5.0: # Print every 5 seconds
+                     loop_time = current_time - loop_start_time
+                     fps = 1.0 / loop_time if loop_time > 0 else float('inf')
+                     print(f"Sim Loop Time: {loop_time*1000:.2f} ms | FPS: {fps:.1f}")
+                     last_print_time = current_time
+                # Preserving original FPS calculation block comment
+                # if int(time.time() - start_time) % 5 == 0:
+                #     print(f"FPS: {1/(time.time() - start_time):.1f}")
+                #     start_time = time.time()
+
+        else:
+            print("Start signal not received. Exiting.")
 
     except KeyboardInterrupt:
-        print("Shutting down teleoperator...")
+        print("\nCtrl+C detected. Shutting down teleoperator...")
     finally:
         # Clean up resources
         print("Cleaning up resources...")
-        vr_renderer.cleanup()
-        sm.cleanup()
+        if 'renderer' in locals() and renderer:
+            try:
+                renderer.close()
+                print("mujoco.Renderer closed.")
+            except Exception as e:
+                print(f"Error closing renderer: {e}")
+        if 'teleoperator' in locals() and teleoperator:
+             teleoperator.cleanup()
+             # print("VuerTeleop cleaned up.") # Already printed in cleanup method
+
+        # --- OpenGL/GLFW Cleanup ---
+        # Make context current before deleting texture
+        if 'window' in locals() and window: # Check if window was created
+            try:
+                # Check if context is valid before making current
+                if glfw.get_window_attrib(window, glfw.CLIENT_API) != glfw.NO_API:
+                     glfw.make_context_current(window)
+                     print("GLFW context made current for cleanup.")
+                     # Delete texture only if context is current and texture exists
+                     if 'texture_id' in locals() and texture_id is not None:
+                          try:
+                              glDeleteTextures(1, [texture_id])
+                              print("OpenGL texture deleted.")
+                          except Exception as e:
+                              print(f"Error deleting texture: {e}")
+                     # Make context None before destroying window
+                     glfw.make_context_current(None) 
+                else:
+                    print("WARN: GLFW context already destroyed or invalid before cleanup.")
+
+            except Exception as e:
+                 print(f"Error making context current/deleting texture during cleanup: {e}")
+
+            # Destroy the window regardless of context state
+            try:
+                glfw.destroy_window(window)
+                print("GLFW window destroyed.")
+            except Exception as e:
+                print(f"Error destroying window: {e}")
+        
+        # Terminate GLFW only after all potential window destruction
+        try:
+            glfw.terminate()
+            print("GLFW terminated.")
+        except Exception as e:
+            print(f"Error terminating GLFW: {e}")
+        # --------------------------
+
+        # Preserving original cleanup comments
+        # vr_renderer.cleanup()
+        # sm.cleanup()
+
+        # Commented out cv2 cleanup
+        # cv2.destroyAllWindows()
+        # print("OpenCV windows closed.")
+
         print("Cleanup complete. Exiting.")

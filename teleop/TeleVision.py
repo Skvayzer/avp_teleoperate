@@ -1,17 +1,18 @@
 import time
 from vuer import Vuer
 from vuer.events import ClientEvent
-from vuer.schemas import ImageBackground, group, Hands, WebRTCStereoVideoPlane, DefaultScene
+from vuer.schemas import ImageBackground, group, Hands, WebRTCStereoVideoPlane, DefaultScene, Sphere
 from multiprocessing import Array, Process, shared_memory, Queue, Manager, Event, Semaphore
 import numpy as np
 import asyncio
 from webrtc.zed_server import *
 
 class OpenTeleVision:
-    def __init__(self, img_shape, shm_name, queue, toggle_streaming, stream_mode="image", cert_file="./cert.pem", key_file="./key.pem", ngrok=False):
+    def __init__(self, img_shape, dtype, shm_name, queue, toggle_streaming, first_frame_event, stream_mode="image", cert_file="./cert.pem", key_file="./key.pem", ngrok=False):
         # self.app=Vuer()
-        self.img_shape = (img_shape[0], 2*img_shape[1], 3)
-        self.img_height, self.img_width = img_shape[:2]
+        self.img_shape = img_shape
+        self.img_height, self.img_width = self.img_shape[:2]
+        self.first_frame_event = first_frame_event
 
         if ngrok:
             self.app = Vuer(host='0.0.0.0', queries=dict(grid=False), queue_len=3)
@@ -22,7 +23,7 @@ class OpenTeleVision:
         self.app.add_handler("CAMERA_MOVE")(self.on_cam_move)
         if stream_mode == "image":
             existing_shm = shared_memory.SharedMemory(name=shm_name)
-            self.img_array = np.ndarray((self.img_shape[0], self.img_shape[1], 3), dtype=np.uint8, buffer=existing_shm.buf)
+            self.img_array = np.ndarray(self.img_shape, dtype=dtype, buffer=existing_shm.buf)
             self.app.spawn(start=False)(self.main_image)
         elif stream_mode == "webrtc":
             self.app.spawn(start=False)(self.main_webrtc)
@@ -126,6 +127,115 @@ class OpenTeleVision:
             await asyncio.sleep(1)
     
     async def main_image(self, session, fps=60):
+        # Wait for the first frame event before starting the loop
+        print("TeleVision main_image: Waiting for first frame event...")
+        while not self.first_frame_event.is_set():
+            await asyncio.sleep(0.05) # Non-blocking sleep
+        print("TeleVision main_image: First frame event received. Starting updates.")
+
+        session.upsert @ Hands(fps=fps, stream=True, key="hands", showLeft=True, showRight=True)
+        while True:
+            # aspect = self.aspect_shared.value
+            display_image = self.img_array
+
+        
+
+            # session.upsert(
+            # ImageBackground(
+            # session.upsert(
+            # ImageBackground(
+            #     # Can scale the images down.
+            #     display_image[:self.img_height],
+            #     # 'jpg' encoding is significantly faster than 'png'.
+            #     format="jpeg",
+            #     quality=80,
+            #     key="left-image",
+            #     interpolate=True,
+            #     # fixed=True,
+            #     aspect=1.778,
+            #     distanceToCamera=2,
+            #     position=[0, -0.5, -2],
+            #     rotation=[0, 0, 0],
+            # ),
+            # to="bgChildren",
+            # )
+
+
+            session.upsert(
+            [ImageBackground(
+                # Left eye: first half of the width
+                display_image[:, :self.img_width // 2], # Get full height, first half width
+                format="jpeg",
+                quality=80, # Adjust quality vs performance
+                key="left-image",
+                interpolate=True,
+                # fixed=True,
+                aspect=(self.img_width // 2) / self.img_height, # Aspect ratio of a single eye
+                height=8, # Controls size in Vuer scene
+                position=[0, 1, 3], # Adjust position as needed
+                # distanceToCamera=8,
+                layers=1
+            ),
+            ImageBackground(
+                # Right eye: second half of the width
+                display_image[:, self.img_width // 2:], # Get full height, second half width
+                format="jpeg",
+                quality=80,
+                key="right-image",
+                interpolate=True,
+                aspect=(self.img_width // 2) / self.img_height, # Aspect ratio of a single eye
+                height=8,
+                position=[0, 1, 3], # Adjust position as needed
+                layers=2
+            )
+            ],
+            to="bgChildren",
+            )
+
+            # session.upsert(
+            # [ImageBackground(
+            #     # Can scale the images down.
+            #     display_image[::2, :self.img_width:2], # Adjusted slicing? Verify if this is correct
+            #     # display_image[:self.img_height:2, ::2],
+            #     # 'jpg' encoding is significantly faster than 'png'.
+            #     format="jpeg",
+            #     quality=80,
+            #     key="left-image",
+            #     interpolate=True,
+            #     # fixed=True,
+            #     aspect=self.img_width/self.img_height, # Use actual aspect ratio
+            #     # distanceToCamera=0.5,
+            #     height = 8,
+            #     position=[0, -1, 3],
+            #     # rotation=[0, 0, 0],
+            #     layers=1, 
+            #     # alphaSrc="./vinette.jpg" # Optional alpha mask
+            # ),
+            # ImageBackground(
+            #     # Can scale the images down.
+            #     display_image[::2, self.img_width::2], # Adjusted slicing? Verify if this is correct
+            #     # display_image[self.img_height::2, ::2],
+            #     # 'jpg' encoding is significantly faster than 'png'.
+            #     format="jpeg",
+            #     quality=80,
+            #     key="right-image",
+            #     interpolate=True,
+            #     # fixed=True,
+            #     aspect=self.img_width/self.img_height, # Use actual aspect ratio
+            #     # distanceToCamera=0.5,
+            #     height = 8,
+            #     position=[0, -1, 3],
+            #     # rotation=[0, 0, 0],
+            #     layers=2, 
+            #     # alphaSrc="./vinette.jpg" # Optional alpha mask
+            # )],
+            # to="bgChildren",
+            # )
+            # Adjust sleep time as needed for desired Vuer update rate
+            await asyncio.sleep(1/fps) # Use desired fps
+
+    async def sphere_view(self, session, fps=60):
+        session.set @ DefaultScene(frameloop="always")
         session.upsert @ Hands(fps=fps, stream=True, key="hands", showLeft=True, showRight=True)
         while True:
             # aspect = self.aspect_shared.value
@@ -150,7 +260,7 @@ class OpenTeleVision:
             # )
 
             session.upsert(
-            [ImageBackground(
+            [Sphere(
                 # Can scale the images down.
                 display_image[::2, :self.img_width],
                 # display_image[:self.img_height:2, ::2],
@@ -290,7 +400,7 @@ if __name__ == "__main__":
     shm_name = shm.name
     img_array = np.ndarray((img_shape[0], img_shape[1], 3), dtype=np.uint8, buffer=shm.buf)
 
-    tv = OpenTeleVision(resolution_cropped, cert_file="../cert.pem", key_file="../key.pem")
+    tv = OpenTeleVision(resolution_cropped, np.uint8, shm_name, cert_file="../cert.pem", key_file="../key.pem")
     while True:
         # print(tv.left_landmarks)
         # print(tv.left_hand)

@@ -243,6 +243,9 @@
                 <geom class="visual" mesh="torso_link"/>
                 <geom class="visual" material="white" mesh="logo_link"/>
                 <geom name="head" class="collision" type="capsule" size="0.06" fromto="0.05 0 0.68 0.05 0 0.6"/>
+                
+                <camera name="head_camera" mode="fixed" pos="0 0 0.68" ipd="0.068" euler="0 0 0"/>
+
                 <geom name="helmet" class="collision" type="sphere" size="0.073" pos="0.045 0 0.68"/>
                 <geom name="torso" class="collision" type="box" size="0.07 0.1 0.22" pos="0 0 0.25"/>
                 <geom name="hip" class="collision" type="capsule" size="0.05" fromto="0 -0.1 -0.05 0 0.1 -0.05"/>
