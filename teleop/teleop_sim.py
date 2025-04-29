@@ -150,7 +150,7 @@ class VuerTeleop:
         image_queue = Queue() # Keep if OpenTeleVision uses it
         toggle_streaming = Event() # Keep if OpenTeleVision uses it
         # Pass self.img_shape and np.uint8 (or appropriate dtype)
-        self.tv = OpenTeleVision(self.img_shape, np.uint8, self.shm.name, image_queue, toggle_streaming, self.first_frame_event, ngrok=False)
+        self.tv = OpenTeleVision(self.img_shape, self.shm.name, image_queue, toggle_streaming, ngrok=False)
 
         self.processor = VuerPreprocessor()
 
@@ -362,6 +362,9 @@ if __name__ == '__main__':
             while not glfw.window_should_close(window):
                 loop_start_time = time.time()
 
+                #lock torso joint
+                data.qpos[10] = 0
+
                 # Get handstate from controller (if needed)
                 # handstate = h1hand.get_hand_state() # Preserved comment
 
@@ -387,7 +390,7 @@ if __name__ == '__main__':
                     # Roll (euler_angles[0]) is typically ignored for free camera orientation
 
                     # Create correction rotation: -90° around X axis
-                    correction_matrix = R.from_euler('x', -90, degrees=True).as_matrix() #@ R.from_euler('y', -45, degrees=True).as_matrix() @ R.from_euler('z', -45, degrees=True).as_matrix()
+                    # correction_matrix = R.from_euler('x', -90, degrees=True).as_matrix() #@ R.from_euler('y', -45, degrees=True).as_matrix() @ R.from_euler('z', -45, degrees=True).as_matrix()
                     head_rotation = R.from_matrix(head_rmat)
                     # print("head_rotation: ", head_rotation)
                     yaw_pitch_roll = head_rotation.as_euler('yzx', degrees=False)  # axes: Yaw (Y) -> Pitch (X) -> Roll (Z)
@@ -417,7 +420,7 @@ if __name__ == '__main__':
                     adjusted_roll = roll #when I yaw it yaws in opposite direction
 
 
-                    corrected_rotation = R.from_euler('xzy', [np.pi/2 + adjusted_yaw, adjusted_pitch, adjusted_roll], degrees=False)
+                    corrected_rotation = R.from_euler('xzy', [np.pi/2 + adjusted_yaw, -np.pi/2 + adjusted_pitch, adjusted_roll], degrees=False)
                     # print("corrected_rotation: ", corrected_rotation, corrected_rotation.as_matrix())
 
                     quat = corrected_rotation.as_quat()
@@ -454,10 +457,9 @@ if __name__ == '__main__':
 
                 # --- Apply Control (Original Logic Preserved) ---
                 # Prepare control values (Preserved from original)
-                sol_q_values = sol_q[-8:].tolist()  # Get last 8 values
-                sol_q_values.append(0)  # Append zero
-                tau_ff_values = tau_ff[-8:].tolist()
-                tau_ff_values.append(0)
+                sol_q_values = sol_q[10:14].tolist() + sol_q[27:31].tolist()
+
+                tau_ff_values = tau_ff[10:14].tolist() + tau_ff[27:31].tolist()
 
                 # Control the robot (Preserved from original)
                 for i in range(model.nu):  # model.nu is the number of actuators
@@ -471,11 +473,13 @@ if __name__ == '__main__':
 
                     # Handle arm joints (11-18)
                     if i >= 11 and i <= 18:
-                        data.ctrl[i] = (
-                            0  # feedforward term tau
-                            + 400 * (sol_q_values[i - 11] - data.qpos[correspond_joint_id])  # position control kp
-                            + 20 * (tau_ff_values[i - 11] - data.qvel[correspond_joint_id])  # velocity control kd
-                        )
+                        # data.ctrl[i] = (
+                        #     0  # feedforward term tau
+                        #     + 400 * (sol_q_values[i - 11] - data.qpos[correspond_joint_id])  # position control kp
+                        #     + 20 * (tau_ff_values[i - 11] - data.qvel[correspond_joint_id])  # velocity control kd
+                        # )
+                        data.qpos[correspond_joint_id] = sol_q_values[i - 11]
+
                     # Handle hand fingers (19-42)
                     elif i >= 19 and i <= 42:
                         target_angle = None
@@ -503,11 +507,13 @@ if __name__ == '__main__':
                                 target_angle = angles[3]
 
                         if target_angle is not None:
-                            data.ctrl[i] = (
-                                0  # feedforward term tau
-                                + 400 * (target_angle - data.qpos[correspond_joint_id])  # position control kp
-                                + 20 * (0 - data.qvel[correspond_joint_id])  # velocity control kd
-                            )
+                            # data.ctrl[i] = (
+                            #     0  # feedforward term tau
+                            #     + 400 * (target_angle - data.qpos[correspond_joint_id])  # position control kp
+                            #     + 20 * (0 - data.qvel[correspond_joint_id])  # velocity control kd
+                            # )
+                            data.qpos[correspond_joint_id] = target_angle
+
                 # --- End Apply Control ---
 
                 # Step the simulation

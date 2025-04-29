@@ -8,11 +8,11 @@ import asyncio
 from webrtc.zed_server import *
 
 class OpenTeleVision:
-    def __init__(self, img_shape, dtype, shm_name, queue, toggle_streaming, first_frame_event, stream_mode="image", cert_file="./cert.pem", key_file="./key.pem", ngrok=False):
+    def __init__(self, img_shape, shm_name, queue, toggle_streaming, stream_mode="image", cert_file="./cert.pem", key_file="./key.pem", ngrok=False):
         # self.app=Vuer()
         self.img_shape = img_shape
         self.img_height, self.img_width = self.img_shape[:2]
-        self.first_frame_event = first_frame_event
+        # self.first_frame_event = first_frame_event
 
         if ngrok:
             self.app = Vuer(host='0.0.0.0', queries=dict(grid=False), queue_len=3)
@@ -23,7 +23,7 @@ class OpenTeleVision:
         self.app.add_handler("CAMERA_MOVE")(self.on_cam_move)
         if stream_mode == "image":
             existing_shm = shared_memory.SharedMemory(name=shm_name)
-            self.img_array = np.ndarray(self.img_shape, dtype=dtype, buffer=existing_shm.buf)
+            self.img_array = np.ndarray(self.img_shape, dtype=np.uint8, buffer=existing_shm.buf)
             self.app.spawn(start=False)(self.main_image)
         elif stream_mode == "webrtc":
             self.app.spawn(start=False)(self.main_webrtc)
@@ -128,10 +128,10 @@ class OpenTeleVision:
     
     async def main_image(self, session, fps=60):
         # Wait for the first frame event before starting the loop
-        print("TeleVision main_image: Waiting for first frame event...")
-        while not self.first_frame_event.is_set():
-            await asyncio.sleep(0.05) # Non-blocking sleep
-        print("TeleVision main_image: First frame event received. Starting updates.")
+        # print("TeleVision main_image: Waiting for first frame event...")
+        # while not self.first_frame_event.is_set():
+        #     await asyncio.sleep(0.05) # Non-blocking sleep
+        # print("TeleVision main_image: First frame event received. Starting updates.")
 
         session.upsert @ Hands(fps=fps, stream=True, key="hands", showLeft=True, showRight=True)
         while True:

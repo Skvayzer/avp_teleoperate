@@ -30,6 +30,25 @@
         <light pos="2 2 2" dir="-1 -1 -1" directional="true" diffuse="0.3 0.3 0.3" specular="0.1 0.1 0.1"/>
         <geom name="floor" size="5 5 0.01" type="plane" material="grid"/>
 
+
+        <!-- Table -->
+        <body name="table" pos="0.6 0 1.2">
+            <geom name="table_top" type="box" size="0.4 0.4 0.02" material="white_desk" rgba="0.9 0.9 0.9 1"/>
+            <geom name="table_leg1" type="box" pos="0.35 0.35 -0.6" size="0.05 0.05 0.6" material="white_desk"/>
+            <geom name="table_leg2" type="box" pos="-0.35 0.35 -0.6" size="0.05 0.05 0.6" material="white_desk"/>
+            <geom name="table_leg3" type="box" pos="0.35 -0.35 -0.6" size="0.05 0.05 0.6" material="white_desk"/>
+            <geom name="table_leg4" type="box" pos="-0.35 -0.35 -0.6" size="0.05 0.05 0.6" material="white_desk"/>
+        </body>
+
+        <!-- Red cube (grabbable) -->
+        <body name="red_cube" pos="0.3 0 1.28">
+            <joint name="cube_free" type="free"/>
+            <geom name="cube_geom" type="box" size="0.03 0.03 0.03"
+                rgba="1 0 0 1" mass="0.1"
+                contype="1" conaffinity="1" friction="1 0.005 0.0001"/>
+            <site name="cube_site" pos="0 0 0" size="0.01" rgba="1 0 0 1"/>
+        </body>
+
         <!-- White Desk - rotated 90 degrees (quat: "0.7071 0 0 0.7071" represents 90-degree rotation around Z) -->
 
         <body name="com_target" pos="0.5 0 .5" mocap="true">
@@ -52,6 +71,7 @@
             <geom type="box" size=".04 .04 .04" contype="0" conaffinity="0" rgba=".6 .3 .3 .2"/>
             <site type="sphere" size="0.01" rgba="0 0 1 1" group="1"/>
         </body>
+        
     </worldbody>
 
     <keyframe>
@@ -63,6 +83,7 @@
     0 0 0 0
     0 0 0 0 0 0 0 0 0 0 0 0
     0 0 0 0
-    0 0 0 0 0 0 0 0 0 0 0 0"/>
+    0 0 0 0 0 0 0 0 0 0 0 0
+    0.3 0 1.28 1 0 0 0"/>
     </keyframe>
 </mujoco>

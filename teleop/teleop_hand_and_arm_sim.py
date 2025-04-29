@@ -255,6 +255,9 @@ if __name__ == '__main__':
 
                     q_poseList = np.zeros(20)
                     q_tau_ff = np.zeros(20)
+
+                    #l ock torso joint
+                    data.qpos[10] = 0
                     # armstate,armv = h1arm.GetMotorState()
 
                     # hands uncomment# 
@@ -294,12 +297,12 @@ if __name__ == '__main__':
                     )
 
                     # Extract last 8 values, append a zero, format as space-separated string
-                    sol_q_values = sol_q[-8:].tolist()  # Get last 8 values
-                    sol_q_values.append(0)  # Append zero
+                    sol_q_values = sol_q[10:14].tolist() + sol_q[27:31].tolist()
+                    # sol_q_values.append(0)  # Append zero
                     # print(sol_q_values)
 
-                    tau_ff_values = tau_ff[-8:].tolist()  # Get last 8 values
-                    tau_ff_values.append(0)  # Append zero
+                    tau_ff_values = tau_ff[10:14].tolist() + tau_ff[27:31].tolist()
+                    # tau_ff_values.append(0)  # Append zero
                     # print(tau_ff_values)
 
                     # Combine into a single space-separated string
@@ -341,7 +344,8 @@ if __name__ == '__main__':
                             continue
                         correspond_joint_id = correspond_joint.id
 
-                        # print(i, actuator_name)
+                        print("i, Actuator name:", i, actuator_name)
+                        print("Correspond joint id:", correspond_joint_id)
                         # print(len(data.qpos))
                         
                         # Handle arm joints (11-18)
@@ -351,7 +355,10 @@ if __name__ == '__main__':
                                 + 800 * (sol_q_values[i - 11] - data.qpos[correspond_joint_id])  # position control kp
                                 + 20 * (tau_ff_values[i - 11] - data.qvel[correspond_joint_id])  # velocity control kd
                             )
-                            print("Control arm:", actuator_name, data.ctrl[i])
+                            # data.qpos[correspond_joint_id] = sol_q_values[i - 11]
+
+
+                            # print("Control arm:", actuator_name, data.ctrl[i])
                         # Handle left hand fingers (19-30)
                         elif i >= 19 and i <= 42:  # Handle both left (19-30) and right (31-42) hand fingers
                             target_angle = None
@@ -386,10 +393,12 @@ if __name__ == '__main__':
                                 # print("target_angle:", target_angle)
                                 data.ctrl[i] = (
                                     0  # feedforward term tau
-                                    + 1000 * (target_angle - data.qpos[correspond_joint_id])  # position control kp
-                                    + 40 * (1 - data.qvel[correspond_joint_id])  # velocity control kd
+                                    + 800 * (target_angle - data.qpos[correspond_joint_id])  # position control kp
+                                    + 20 * (0 - data.qvel[correspond_joint_id])  # velocity control kd
                                 )
-                                print("Control finger:", actuator_name, data.ctrl[i])
+                                # data.qpos[correspond_joint_id] = target_angle
+
+                                # print("Control finger:", actuator_name, data.ctrl[i])
 
 
                     mujoco.mj_step(model, data)

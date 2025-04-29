@@ -286,8 +286,8 @@
                                           group="1"/>
                                     <inertial diaginertia="0 0 0" mass="0" pos="0 0 0"/>
                                     <body name="left_eef" pos="0 0 0" quat="0.707 0. -0.707 0.">
-                                        <site name="left_grip_site" pos="0 -0.08 0.02" size="0.01 0.01 0.01" rgba="1 1 0 1"
-                                              type="sphere" group="2"/>
+                                        <!-- <site name="left_grip_site" pos="0 -0.08 0.02" size="0.01 0.01 0.01" rgba="1 1 0 1"
+                                              type="sphere" group="2"/> -->
                                         <site name="left_ee_x" pos="0.1 0 0" size="0.005 .1"
                                               quat="0.707105  0 0.707108 0 "
                                               rgba="1 0 0 0" type="cylinder" group="1"/>
@@ -549,8 +549,8 @@
                                           group="1"/>
                                     <inertial diaginertia="0 0 0" mass="0" pos="0 0 0"/>
                                     <body name="right_eef" pos="0 0 0" quat="0.707 0. -0.707 0.">
-                                        <site name="right_grip_site" pos="0 -0.08 0.02" size="0.01 0.01 0.01" rgba="1 1 0 1"
-                                              type="sphere" group="2"/>
+                                        <!-- <site name="right_grip_site" pos="0 -0.08 0.02" size="0.01 0.01 0.01" rgba="1 1 0 1"
+                                              type="sphere" group="2"/> -->
                                         <site name="right_ee_x" pos="0.1 0 0" size="0.005 .1"
                                               quat="0.707105  0 0.707108 0 "
                                               rgba="1 0 0 0" type="cylinder" group="1"/>
@@ -808,29 +808,29 @@
     </contact>
 
     <actuator>
-        <motor class="h1" name="left_hip_yaw" joint="left_hip_yaw" ctrlrange="-200 200"/>
-        <motor class="h1" name="left_hip_roll" joint="left_hip_roll" ctrlrange="-200 200"/>
-        <motor class="h1" name="left_hip_pitch" joint="left_hip_pitch" ctrlrange="-200 200"/>
-        <motor class="h1" name="left_knee" joint="left_knee" ctrlrange="-300 300"/>
-        <motor class="h1" name="left_ankle" joint="left_ankle" ctrlrange="-40 40"/>
+        <motor class="h1" name="left_hip_yaw" joint="left_hip_yaw" ctrllimited="true" ctrlrange="-200 200"/>
+        <motor class="h1" name="left_hip_roll" joint="left_hip_roll" ctrllimited="true" ctrlrange="-200 200"/>
+        <motor class="h1" name="left_hip_pitch" joint="left_hip_pitch" ctrllimited="true" ctrlrange="-200 200"/>
+        <motor class="h1" name="left_knee" joint="left_knee" ctrllimited="true" ctrlrange="-300 300"/>
+        <motor class="h1" name="left_ankle" joint="left_ankle" ctrllimited="true" ctrlrange="-40 40"/>
 
-        <motor class="h1" name="right_hip_yaw" joint="right_hip_yaw" ctrlrange="-200 200"/>
-        <motor class="h1" name="right_hip_roll" joint="right_hip_roll" ctrlrange="-200 200"/>
-        <motor class="h1" name="right_hip_pitch" joint="right_hip_pitch" ctrlrange="-200 200"/>
-        <motor class="h1" name="right_knee" joint="right_knee" ctrlrange="-300 300"/>
-        <motor class="h1" name="right_ankle" joint="right_ankle" ctrlrange="-40 40"/>
+        <motor class="h1" name="right_hip_yaw" joint="right_hip_yaw" ctrllimited="true" ctrlrange="-200 200"/>
+        <motor class="h1" name="right_hip_roll" joint="right_hip_roll" ctrllimited="true" ctrlrange="-200 200"/>
+        <motor class="h1" name="right_hip_pitch" joint="right_hip_pitch" ctrllimited="true" ctrlrange="-200 200"/>
+        <motor class="h1" name="right_knee" joint="right_knee" ctrllimited="true" ctrlrange="-300 300"/>
+        <motor class="h1" name="right_ankle" joint="right_ankle" ctrllimited="true" ctrlrange="-40 40"/>
 
         <motor class="h1" name="torso" joint="torso" ctrlrange="-200 200"/>
 
-        <motor class="h1" name="left_shoulder_pitch" joint="left_shoulder_pitch" ctrlrange="-40 40"/>
-        <motor class="h1" name="left_shoulder_roll" joint="left_shoulder_roll" ctrlrange="-40 40"/>
-        <motor class="h1" name="left_shoulder_yaw" joint="left_shoulder_yaw" ctrlrange="-18 18"/>
-        <motor class="h1" name="left_elbow" joint="left_elbow" ctrlrange="-18 18"/>
+        <motor class="h1" name="left_shoulder_pitch" joint="left_shoulder_pitch" ctrllimited="true" ctrlrange="-40 40"/>
+        <motor class="h1" name="left_shoulder_roll" joint="left_shoulder_roll" ctrllimited="true" ctrlrange="-40 40"/>
+        <motor class="h1" name="left_shoulder_yaw" joint="left_shoulder_yaw" ctrllimited="true" ctrlrange="-18 18"/>
+        <motor class="h1" name="left_elbow" joint="left_elbow" ctrllimited="true" ctrlrange="-18 18"/>
 
-        <motor class="h1" name="right_shoulder_pitch" joint="right_shoulder_pitch" ctrlrange="-40 40"/>
-        <motor class="h1" name="right_shoulder_roll" joint="right_shoulder_roll" ctrlrange="-40 40"/>
-        <motor class="h1" name="right_shoulder_yaw" joint="right_shoulder_yaw" ctrlrange="-18 18"/>
-        <motor class="h1" name="right_elbow" joint="right_elbow" ctrlrange="-18 18"/>
+        <motor class="h1" name="right_shoulder_pitch" joint="right_shoulder_pitch" ctrllimited="true" ctrlrange="-40 40"/>
+        <motor class="h1" name="right_shoulder_roll" joint="right_shoulder_roll" ctrllimited="true" ctrlrange="-40 40"/>
+        <motor class="h1" name="right_shoulder_yaw" joint="right_shoulder_yaw" ctrllimited="true" ctrlrange="-18 18"/>
+        <motor class="h1" name="right_elbow" joint="right_elbow" ctrllimited="true" ctrlrange="-18 18"/>
 
 <!--        <motor class="h1" name="left_hip_yaw" joint="left_hip_yaw"/>-->
 <!--        <motor class="h1" name="left_hip_roll" joint="left_hip_roll"/>-->
@@ -909,7 +909,7 @@
         <position joint="joint_r_thumb_proximal_1" name="joint_r_thumb_proximal_1" ctrlrange="0 1.3" kp="4"
                   forcelimited="true" forcerange="-20 20"/> -->
 
-        <motor joint="joint_l_pinky_distal" name="joint_l_pinky_distal" ctrlrange="-20 20"/>
+        <!-- <motor joint="joint_l_pinky_distal" name="joint_l_pinky_distal" ctrlrange="-20 20"/>
         <motor joint="joint_l_pinky_proximal" name="joint_l_pinky_proximal" ctrlrange="-20 20"/>
         <motor joint="joint_l_ring_distal" name="joint_l_ring_distal" ctrlrange="-20 20"/>
         <motor joint="joint_l_ring_proximal" name="joint_l_ring_proximal" ctrlrange="-20 20"/>
@@ -932,7 +932,37 @@
         <motor joint="joint_r_thumb_distal" name="joint_r_thumb_distal" ctrlrange="-20 20"/>
         <motor joint="joint_r_thumb_middle" name="joint_r_thumb_middle" ctrlrange="-20 20"/>
         <motor joint="joint_r_thumb_proximal_2" name="joint_r_thumb_proximal_2" ctrlrange="-20 20"/>
-        <motor joint="joint_r_thumb_proximal_1" name="joint_r_thumb_proximal_1" ctrlrange="-20 20"/>
+        <motor joint="joint_r_thumb_proximal_1" name="joint_r_thumb_proximal_1" ctrlrange="-20 20"/> -->
+
+
+      <motor joint="joint_l_pinky_distal" name="joint_l_pinky_distal" ctrlrange="-1 1"/>
+      <motor joint="joint_l_pinky_proximal" name="joint_l_pinky_proximal" ctrlrange="-1 1"/>
+      <motor joint="joint_l_ring_distal" name="joint_l_ring_distal" ctrlrange="-1 1"/>
+      <motor joint="joint_l_ring_proximal" name="joint_l_ring_proximal" ctrlrange="-1 1"/>
+      <motor joint="joint_l_middle_distal" name="joint_l_middle_distal" ctrlrange="-1 1"/>
+      <motor joint="joint_l_middle_proximal" name="joint_l_middle_proximal" ctrlrange="-1 1"/>
+      <motor joint="joint_l_index_distal" name="joint_l_index_distal" ctrlrange="-1 1"/>
+      <motor joint="joint_l_index_proximal" name="joint_l_index_proximal" ctrlrange="-1 1"/>
+      <motor joint="joint_l_thumb_distal" name="joint_l_thumb_distal" ctrlrange="-1 1"/>
+      <motor joint="joint_l_thumb_middle" name="joint_l_thumb_middle" ctrlrange="-1 1"/>
+      <motor joint="joint_l_thumb_proximal_2" name="joint_l_thumb_proximal_2" ctrlrange="-1 1"/>
+      <motor joint="joint_l_thumb_proximal_1" name="joint_l_thumb_proximal_1" ctrlrange="-1 1"/>
+      <motor joint="joint_r_pinky_distal" name="joint_r_pinky_distal" ctrlrange="-1 1"/>
+      <motor joint="joint_r_pinky_proximal" name="joint_r_pinky_proximal" ctrlrange="-1 1"/>
+      <motor joint="joint_r_ring_distal" name="joint_r_ring_distal" ctrlrange="-1 1"/>
+      <motor joint="joint_r_ring_proximal" name="joint_r_ring_proximal" ctrlrange="-1 1"/>
+      <motor joint="joint_r_middle_distal" name="joint_r_middle_distal" ctrlrange="-1 1"/>
+      <motor joint="joint_r_middle_proximal" name="joint_r_middle_proximal" ctrlrange="-1 1"/>
+      <motor joint="joint_r_index_distal" name="joint_r_index_distal" ctrlrange="-1 1"/>
+      <motor joint="joint_r_index_proximal" name="joint_r_index_proximal" ctrlrange="-1 1"/>
+      <motor joint="joint_r_thumb_distal" name="joint_r_thumb_distal" ctrlrange="-1 1"/>
+      <motor joint="joint_r_thumb_middle" name="joint_r_thumb_middle" ctrlrange="-1 1"/>
+      <motor joint="joint_r_thumb_proximal_2" name="joint_r_thumb_proximal_2" ctrlrange="-1 1"/>
+      <motor joint="joint_r_thumb_proximal_1" name="joint_r_thumb_proximal_1" ctrlrange="-1 1"/>
+
+
+
+        
     </actuator>
 
     <sensor>
