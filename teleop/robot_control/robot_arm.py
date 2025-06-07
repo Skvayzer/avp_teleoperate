@@ -2,15 +2,18 @@ import numpy as np
 import threading
 import time
 
-# from unitree_dds_wrapper.idl import unitree_hg
-from unitree_dds_wrapper.idl import unitree_go
-from unitree_dds_wrapper.publisher import Publisher
-from unitree_dds_wrapper.subscription import Subscription
-from unitree_dds_wrapper.utils.crc import crc32
+# # from unitree_dds_wrapper.idl import unitree_hg
+# from unitree_dds_wrapper.idl import unitree_go
+# from unitree_dds_wrapper.publisher import Publisher
+# from unitree_dds_wrapper.subscription import Subscription
+# from unitree_dds_wrapper.utils.crc import crc32
 
 from unitree_sdk2py.core.channel import ChannelPublisher, ChannelFactoryInitialize
 from unitree_sdk2py.core.channel import ChannelSubscriber, ChannelFactoryInitialize
 from unitree_sdk2py.utils.crc import CRC
+from unitree_sdk2py.idl.unitree_go.msg.dds_ import LowCmd_ as LowCmdGo
+from unitree_sdk2py.idl.unitree_go.msg.dds_ import LowState_ as LowStateGo
+from unitree_sdk2py.idl.default import unitree_go_msg_dds__LowCmd_, unitree_go_msg_dds__LowState_
 
 import struct
 from enum import IntEnum
@@ -60,31 +63,44 @@ class H1ArmController:
         print("Initialize H1ArmController...")
         self.q_desList = np.zeros(kNumMotors)
         self.q_tau_ff = np.zeros(kNumMotors)
-        self.msg = unitree_go.msg.dds_.LowCmd_()
+        self.msg = unitree_go_msg_dds__LowCmd_()
+        
         self.InitLowCmd()
+
+        # ChannelFactoryInitialize(0, 'lo')
+
 
         # self.__packFmtHGLowCmd = '<2B2x' + 'B3x5fI' * 35 + '5I'
 
         # self.msg.head = [0xFE, 0xEF]
         # self.lowcmd_publisher = Publisher(unitree_go.msg.dds_.LowCmd_, kTopicLowCommand)
-        self.lowcmd_publisher = ChannelPublisher(kTopicLowCommand, unitree_go.msg.dds_.LowCmd_)
+        self.lowcmd_publisher = ChannelPublisher(kTopicLowCommand, LowCmdGo)
         self.lowcmd_publisher.Init()
         # self.lowstate_subscriber = Subscription(unitree_go.msg.dds_.LowState_, kTopicLowState)
-        self.lowstate_subscriber = ChannelSubscriber(kTopicLowState, unitree_go.msg.dds_.LowState_)
+        self.lowstate_subscriber = ChannelSubscriber(kTopicLowState, LowStateGo)
         self.lowstate_subscriber.Init(self.LowStateHandler, 10)
 
         self.motor_state_buffer = DataBuffer()
         self.motor_command_buffer = DataBuffer()
         self.base_state_buffer = DataBuffer()
 
-        self.kp_low = 140.0
-        self.kd_low = 7.5
+        # self.kp_low = 140.0
+        # self.kd_low = 7.5
 
-        self.kp_high = 200.0
-        self.kd_high = 5.0
+        self.kp_low = 50
+        self.kd_low = 3
 
-        self.kp_wrist = 35.0
-        self.kd_wrist = 6.0
+        # self.kp_high = 200.0
+        # self.kd_high = 5.0
+
+        self.kp_high = 50
+        self.kd_high = 3      
+
+        # self.kp_wrist = 35.0
+        # self.kd_wrist = 6.0
+
+        self.kp_wrist = 20
+        self.kd_wrist = 3
 
         self.control_dt = 0.01
         # self.hip_pitch_init_pos = -0.5
@@ -96,7 +112,7 @@ class H1ArmController:
         self.report_dt = 0.1
         self.ratio = 0.0
         self.q_target = []
-        self.low_state = None
+        self.low_state = unitree_go_msg_dds__LowState_()
         self.low_command = None
         self.crc = CRC()
 
@@ -113,11 +129,12 @@ class H1ArmController:
         init_q = np.array([self.low_state.motor_state[id].q for id in JointIndex])
         print("Lock controlled joints...")
         for i in range(duration):
-            time.sleep(0.001)
+            # time.sleep(0.001)
+            time.sleep(self.control_dt)
             q_t = init_q + (self.q_target - init_q) * i / duration
             for i, id in enumerate(JointIndex):
                 if id not in JointArmIndex:
-                    self.msg.motor_cmd[id].kp = 200
+                    self.msg.motor_cmd[id].kp = 50 #200
                     self.msg.motor_cmd[id].kd = 5
                     self.msg.motor_cmd[id].q = q_t[i]
 
@@ -237,7 +254,8 @@ class H1ArmController:
                 # self.lowcmd_publisher.write()
                 self.msg.crc = self.crc.Crc(self.msg)
                 self.lowcmd_publisher.Write(self.msg)
-            time.sleep(0.002)
+            # time.sleep(0.002)
+            time.sleep(self.control_dt)
                   
     def Control(self):
         while True:
@@ -245,10 +263,10 @@ class H1ArmController:
             if ms_tmp_ptr: 
                 tem_q_desList = copy.deepcopy(self.q_desList)
                 tem_q_tau_ff = copy.deepcopy(self.q_tau_ff)
-                motor_command_tmp = MotorCommand()  
-                self.time += self.control_dt  
+                motor_command_tmp = MotorCommand()
+                self.time += self.control_dt
                 self.time = min(max(self.time, 0.0), self.init_duration)  
-                self.ratio = self.time / self.init_duration  
+                self.ratio = self.time / self.init_duration
                 for i in range(kNumMotors):  
                     if self.IsWeakMotor(i):
                         motor_command_tmp.kp[i] = self.kp_low
@@ -257,13 +275,14 @@ class H1ArmController:
                         motor_command_tmp.kp[i] = self.kp_high
                         motor_command_tmp.kd[i] = self.kd_high
                     motor_command_tmp.dq_ref[i] = 0.0  
-                    motor_command_tmp.tau_ff[i] = tem_q_tau_ff[i]  
+                    motor_command_tmp.tau_ff[i] = 0 #tem_q_tau_ff[i]
                     q_des = tem_q_desList[i]
                     
                     q_des = (q_des - ms_tmp_ptr.q[i]) * self.ratio + ms_tmp_ptr.q[i]
                     motor_command_tmp.q_ref[i] = q_des 
                 self.motor_command_buffer.SetData(motor_command_tmp)  
-            time.sleep(0.002)
+            # time.sleep(0.002)
+            time.sleep(self.control_dt)
             
     def GetMotorState(self):
         ms_tmp_ptr = self.motor_state_buffer.GetData()

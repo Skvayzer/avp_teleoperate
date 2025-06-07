@@ -519,7 +519,12 @@ class Arm_IK:
             self.set_hand_angles(left_hand_angles, right_hand_angles)
             
         if motorstate is not None:
-            self.init_data = motorstate
+            # self.init_data = motorstate
+            self.init_data[10:14] = motorstate[4:8]
+            self.init_data[27:31] = motorstate[0:4]
+
+            
+
         
         # Build a config index to joint map for debugging
         config_idx_to_joint = {}

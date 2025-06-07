@@ -7,7 +7,7 @@
     <default class="h1">
         <joint damping="1" armature="0.1"/>
         <default class="visual">
-            <geom type="mesh" contype="0" conaffinity="0" group="2" material="black"/>
+            <geom type="mesh" contype="1" conaffinity="1" group="2" material="black"/>
         </default>
         <default class="collision">
             <geom group="3" mass="0" density="0"/>
@@ -307,7 +307,7 @@
                                     <body name="l_palm" pos="0 0 0">
                                         <!-- Palm Visual -->
                                         <geom name="l_palm_vis" type="mesh" mesh="l_palm_vis" material="l_base_material"
-                                              group="1" contype="0" conaffinity="0"/>
+                                              group="1" contype="1" conaffinity="1"/>
                                         <!-- Palm Collision -->
                                         <geom name="l_palm_col" type="mesh" mesh="l_palm_col" mass="0.1"/>
 
@@ -320,7 +320,7 @@
                                                        axis="0 0 1" range="0 1.30" limited="true" damping="0.5"/>
                                                 <geom name="l_thumb_proximal_vis" type="mesh"
                                                       mesh="l_thumb_proximal_1_vis" material="l_thumb_material"
-                                                      group="1" contype="0" conaffinity="0"></geom>
+                                                      group="1" contype="1" conaffinity="1"></geom>
                                                 <geom name="l_thumb_proximal_col" type="mesh"
                                                       mesh="l_thumb_proximal_1_col" mass="0.1"/>
 
@@ -331,7 +331,7 @@
                                                            axis="0 0 -1" range="0 0.68" limited="true" damping="0.5"/>
                                                     <geom name="l_thumb_proximal_2_vis" type="mesh"
                                                           mesh="l_thumb_proximal_2_vis" material="l_thumb_material"
-                                                          group="1" contype="0" conaffinity="0"></geom>
+                                                          group="1" contype="1" conaffinity="1"></geom>
                                                     <geom name="l_thumb_proximal_2_col" type="mesh"
                                                           mesh="l_thumb_proximal_2_col" mass="0.1"/>
 
@@ -345,7 +345,7 @@
                                                                axis="0 0 -1" range="0 0.68" limited="true" damping="0.5"/>
                                                         <geom name="l_thumb_middle_vis" type="mesh"
                                                               mesh="l_thumb_middle_vis" material="l_thumb_material"
-                                                              group="1" contype="0" conaffinity="0"/>
+                                                              group="1" contype="1" conaffinity="1"/>
                                                         <geom name="l_thumb_middle_col" type="mesh"
                                                               mesh="l_thumb_middle_col" mass="0.1"/>
                                                         <site name="site_l_thumb_middle" size="0.01"
@@ -360,7 +360,7 @@
                                                             <geom name="l_thumb_distal_vis" type="mesh"
                                                                   mesh="l_thumb_distal_vis"
                                                                   material="l_thumb_distal_material" group="1"
-                                                                  contype="0" conaffinity="0"></geom>
+                                                                  contype="1" conaffinity="1"></geom>
                                                             <geom name="l_thumb_distal_col" type="mesh"
                                                                   mesh="l_thumb_distal_col" mass="0.1"/>
                                                             <site name="site_l_thumb_distal" size="0.01"
@@ -387,7 +387,7 @@
                                                       material="site_left_hand"/>
                                                 <geom name="l_index_proximal_vis" type="mesh"
                                                       mesh="l_index_proximal_vis" material="l_index_material" group="1"
-                                                      contype="0" conaffinity="0"/>
+                                                      contype="1" conaffinity="1"/>
                                                 <geom name="l_index_proximal_col" type="mesh"
                                                       mesh="l_index_proximal_col" mass="0.1"/>
                                                 <!-- Index Distal -->
@@ -399,7 +399,7 @@
                                                           material="site_left_hand"/>
                                                     <geom name="l_index_distal_vis" type="mesh"
                                                           mesh="l_index_distal_vis" material="l_index_material"
-                                                          group="1" contype="0" conaffinity="0"/>
+                                                          group="1" contype="1" conaffinity="1"/>
                                                     <geom name="l_index_distal_col" type="mesh"
                                                           mesh="l_index_distal_col" mass="0.1"/>
                                                 </body>
@@ -419,7 +419,7 @@
                                                       material="site_left_hand"/>
                                                 <geom name="l_middle_proximal_vis" type="mesh"
                                                       mesh="l_middle_proximal_vis" material="l_middle_material"
-                                                      group="1" contype="0" conaffinity="0"/>
+                                                      group="1" contype="1" conaffinity="1"/>
                                                 <geom name="l_middle_proximal_col" type="mesh"
                                                       mesh="l_middle_proximal_col" mass="0.1"/>
                                                 <!-- Middle Distal -->
@@ -431,7 +431,7 @@
                                                           material="site_left_hand"/>
                                                     <geom name="l_middle_distal_vis" type="mesh"
                                                           mesh="l_middle_distal_vis" material="l_middle_material"
-                                                          group="1" contype="0" conaffinity="0"/>
+                                                          group="1" contype="1" conaffinity="1"/>
                                                     <geom name="l_middle_distal_col" type="mesh"
                                                           mesh="l_middle_distal_col" mass="0.1"/>
                                                 </body>
@@ -451,7 +451,7 @@
                                                 <site name="site_l_ring_proximal" size="0.01"
                                                       material="site_left_hand"/>
                                                 <geom name="l_ring_proximal_vis" type="mesh" mesh="l_ring_proximal_vis"
-                                                      material="l_ring_material" group="1" contype="0" conaffinity="0"/>
+                                                      material="l_ring_material" group="1" contype="1" conaffinity="1"/>
                                                 <geom name="l_ring_proximal_col" type="mesh" mesh="l_ring_proximal_col"
                                                       mass="0.1"/>
                                                 <!-- Ring Distal -->
@@ -462,8 +462,8 @@
                                                     <site name="site_l_ring_distal" size="0.01"
                                                           material="site_left_hand"/>
                                                     <geom name="l_ring_distal_vis" type="mesh" mesh="l_ring_distal_vis"
-                                                          material="l_ring_material" group="1" contype="0"
-                                                          conaffinity="0"/>
+                                                          material="l_ring_material" group="1" contype="1"
+                                                          conaffinity="1"/>
                                                     <geom name="l_ring_distal_col" type="mesh" mesh="l_ring_distal_col"
                                                           mass="0.1"/>
                                                 </body>
@@ -484,7 +484,7 @@
                                                       material="site_left_hand"/>
                                                 <geom name="l_pinky_proximal_vis" type="mesh"
                                                       mesh="l_pinky_proximal_vis" material="l_pinky_material" group="1"
-                                                      contype="0" conaffinity="0"/>
+                                                      contype="1" conaffinity="1"/>
                                                 <geom name="l_pinky_proximal_col" type="mesh"
                                                       mesh="l_pinky_proximal_col" mass="0.1"/>
                                                 <!-- Pinky Distal -->
@@ -496,7 +496,7 @@
                                                           material="site_left_hand"/>
                                                     <geom name="l_pinky_distal_vis" type="mesh"
                                                           mesh="l_pinky_distal_vis" material="l_pinky_material"
-                                                          group="1" contype="0" conaffinity="0"/>
+                                                          group="1" contype="1" conaffinity="1"/>
                                                     <geom name="l_pinky_distal_col" type="mesh"
                                                           mesh="l_pinky_distal_col" mass="0.1"/>
                                                 </body>
@@ -570,7 +570,7 @@
                                     <body name="r_palm" pos="0 0 0">
                                         <!-- Palm Visual -->
                                         <geom name="r_palm_vis" type="mesh" mesh="r_palm_vis" material="r_base_material"
-                                              group="1" contype="0" conaffinity="0"/>
+                                              group="1" contype="1" conaffinity="1"/>
                                         <!-- Palm Collision -->
                                         <geom name="r_palm_col" type="mesh" mesh="r_palm_col" mass="0.1"/>
 
@@ -583,7 +583,7 @@
                                                        axis="0 0 -1" range="0 1.30" limited="true" damping="0.5"/>
                                                 <geom name="r_thumb_proximal_vis" type="mesh"
                                                       mesh="r_thumb_proximal_1_vis" material="r_thumb_material"
-                                                      group="1" contype="0" conaffinity="0"></geom>
+                                                      group="1" contype="1" conaffinity="1"></geom>
                                                 <geom name="r_thumb_proximal_col" type="mesh"
                                                       mesh="r_thumb_proximal_1_col" mass="0.1"/>
 
@@ -594,7 +594,7 @@
                                                            axis="0 0 1" range="0 0.68" limited="true" damping="0.5"/>
                                                     <geom name="r_thumb_proximal_2_vis" type="mesh"
                                                           mesh="r_thumb_proximal_2_vis" material="r_thumb_material"
-                                                          group="1" contype="0" conaffinity="0"></geom>
+                                                          group="1" contype="1" conaffinity="1"></geom>
                                                     <geom name="r_thumb_proximal_2_col" type="mesh"
                                                           mesh="r_thumb_proximal_2_col" mass="0.1"/>
 
@@ -608,7 +608,7 @@
                                                                axis="0 0 1" range="0 0.68" limited="true" damping="0.5"/>
                                                         <geom name="r_thumb_middle_vis" type="mesh"
                                                               mesh="r_thumb_middle_vis" material="r_thumb_material"
-                                                              group="1" contype="0" conaffinity="0"/>
+                                                              group="1" contype="1" conaffinity="1"/>
                                                         <geom name="r_thumb_middle_col" type="mesh"
                                                               mesh="r_thumb_middle_col" mass="0.1"/>
                                                         <site name="site_r_thumb_middle" size="0.01"
@@ -623,7 +623,7 @@
                                                             <geom name="r_thumb_distal_vis" type="mesh"
                                                                   mesh="r_thumb_distal_vis"
                                                                   material="r_thumb_distal_material" group="1"
-                                                                  contype="0" conaffinity="0"></geom>
+                                                                  contype="1" conaffinity="1"></geom>
                                                             <geom name="r_thumb_distal_col" type="mesh"
                                                                   mesh="r_thumb_distal_col" mass="0.1"/>
                                                             <site name="site_r_thumb_distal" size="0.01"
@@ -650,7 +650,7 @@
                                                       material="site_right_hand"/>
                                                 <geom name="r_index_proximal_vis" type="mesh"
                                                       mesh="r_index_proximal_vis" material="r_index_material" group="1"
-                                                      contype="0" conaffinity="0"/>
+                                                      contype="1" conaffinity="1"/>
                                                 <geom name="r_index_proximal_col" type="mesh"
                                                       mesh="r_index_proximal_col" mass="0.1"/>
                                                 <!-- Index Distal -->
@@ -662,7 +662,7 @@
                                                           material="site_right_hand"/>
                                                     <geom name="r_index_distal_vis" type="mesh"
                                                           mesh="r_index_distal_vis" material="r_index_material"
-                                                          group="1" contype="0" conaffinity="0"/>
+                                                          group="1" contype="1" conaffinity="1"/>
                                                     <geom name="r_index_distal_col" type="mesh"
                                                           mesh="r_index_distal_col" mass="0.1"/>
                                                 </body>
@@ -682,7 +682,7 @@
                                                       material="site_right_hand"/>
                                                 <geom name="r_middle_proximal_vis" type="mesh"
                                                       mesh="r_middle_proximal_vis" material="r_middle_material"
-                                                      group="1" contype="0" conaffinity="0"/>
+                                                      group="1" contype="1" conaffinity="1"/>
                                                 <geom name="r_middle_proximal_col" type="mesh"
                                                       mesh="r_middle_proximal_col" mass="0.1"/>
                                                 <!-- Middle Distal -->
@@ -694,7 +694,7 @@
                                                           material="site_right_hand"/>
                                                     <geom name="r_middle_distal_vis" type="mesh"
                                                           mesh="r_middle_distal_vis" material="r_middle_material"
-                                                          group="1" contype="0" conaffinity="0"/>
+                                                          group="1" contype="1" conaffinity="1"/>
                                                     <geom name="r_middle_distal_col" type="mesh"
                                                           mesh="r_middle_distal_col" mass="0.1"/>
                                                 </body>
@@ -714,7 +714,7 @@
                                                 <site name="site_r_ring_proximal" size="0.01"
                                                       material="site_right_hand"/>
                                                 <geom name="r_ring_proximal_vis" type="mesh" mesh="r_ring_proximal_vis"
-                                                      material="r_ring_material" group="1" contype="0" conaffinity="0"/>
+                                                      material="r_ring_material" group="1" contype="1" conaffinity="1"/>
                                                 <geom name="r_ring_proximal_col" type="mesh" mesh="r_ring_proximal_col"
                                                       mass="0.1"/>
                                                 <!-- Ring Distal -->
@@ -725,8 +725,8 @@
                                                     <site name="site_r_ring_distal" size="0.01"
                                                           material="site_right_hand"/>
                                                     <geom name="r_ring_distal_vis" type="mesh" mesh="r_ring_distal_vis"
-                                                          material="r_ring_material" group="1" contype="0"
-                                                          conaffinity="0"/>
+                                                          material="r_ring_material" group="1" contype="1"
+                                                          conaffinity="1"/>
                                                     <geom name="r_ring_distal_col" type="mesh" mesh="r_ring_distal_col"
                                                           mass="0.1"/>
                                                 </body>
@@ -747,7 +747,7 @@
                                                       material="site_right_hand"/>
                                                 <geom name="r_pinky_proximal_vis" type="mesh"
                                                       mesh="r_pinky_proximal_vis" material="r_pinky_material" group="1"
-                                                      contype="0" conaffinity="0"/>
+                                                      contype="1" conaffinity="1"/>
                                                 <geom name="r_pinky_proximal_col" type="mesh"
                                                       mesh="r_pinky_proximal_col" mass="0.1"/>
                                                 <!-- Pinky Distal -->
@@ -759,7 +759,7 @@
                                                           material="site_right_hand"/>
                                                     <geom name="r_pinky_distal_vis" type="mesh"
                                                           mesh="r_pinky_distal_vis" material="r_pinky_material"
-                                                          group="1" contype="0" conaffinity="0"/>
+                                                          group="1" contype="1" conaffinity="1"/>
                                                     <geom name="r_pinky_distal_col" type="mesh"
                                                           mesh="r_pinky_distal_col" mass="0.1"/>
                                                 </body>
