@@ -31,6 +31,7 @@ if __name__ == '__main__':
 
     parser.add_argument('--arm', type=str, choices=['G1_29', 'G1_23', 'H1_2', 'H1'], default='G1_29', help='Select arm controller')
     parser.add_argument('--hand', type=str, choices=['dex3', 'gripper', 'inspire1'], help='Select hand controller')
+    parser.add_argument('--port', type=str, default="lo", help='Select port')
 
     args = parser.parse_args()
     print(f"args:{args}\n")
@@ -90,7 +91,7 @@ if __name__ == '__main__':
         arm_ctrl = H1_2_ArmController()
         arm_ik = H1_2_ArmIK()
     elif args.arm == 'H1':
-        arm_ctrl = H1_ArmController()
+        arm_ctrl = H1_ArmController(port=args.port)
         arm_ik = H1_ArmIK()
 
     # hand
@@ -114,7 +115,7 @@ if __name__ == '__main__':
         dual_hand_data_lock = Lock()
         dual_hand_state_array = Array('d', 12, lock = False)   # [output] current left, right hand state(12) data.
         dual_hand_action_array = Array('d', 12, lock = False)  # [output] current left, right hand action(12) data.
-        hand_ctrl = Inspire_Controller(left_hand_array, right_hand_array, dual_hand_data_lock, dual_hand_state_array, dual_hand_action_array)
+        hand_ctrl = Inspire_Controller(left_hand_array, right_hand_array, dual_hand_data_lock, dual_hand_state_array, dual_hand_action_array, port=args.port)
     else:
         pass
     

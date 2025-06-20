@@ -837,7 +837,7 @@ class H1_2_JointIndex(IntEnum):
     kNotUsedJoint7 = 34
 
 class H1_ArmController:
-    def __init__(self):
+    def __init__(self, port = "lo"):
         print("Initialize H1_ArmController...")
         self.q_target = np.zeros(8)
         self.tauff_target = np.zeros(8)
@@ -856,7 +856,7 @@ class H1_ArmController:
         self._gradual_time = None
 
         # initialize lowcmd publisher and lowstate subscriber
-        ChannelFactoryInitialize(0)
+        ChannelFactoryInitialize(0, "enp3s0f3u2")
         self.lowcmd_publisher = ChannelPublisher(kTopicLowCommand, go_LowCmd)
         self.lowcmd_publisher.Init()
         self.lowstate_subscriber = ChannelSubscriber(kTopicLowState, go_LowState)
@@ -1053,14 +1053,14 @@ if __name__ == "__main__":
     from robot_arm_ik import G1_29_ArmIK, G1_23_ArmIK, H1_2_ArmIK, H1_ArmIK
     import pinocchio as pin 
 
-    arm_ik = G1_29_ArmIK(Unit_Test = True, Visualization = False)
-    arm = G1_29_ArmController()
+    # arm_ik = G1_29_ArmIK(Unit_Test = True, Visualization = False)
+    # arm = G1_29_ArmController()
     # arm_ik = G1_23_ArmIK(Unit_Test = True, Visualization = False)
     # arm = G1_23_ArmController()
     # arm_ik = H1_2_ArmIK(Unit_Test = True, Visualization = False)
     # arm = H1_2_ArmController()
-    # arm_ik = H1_ArmIK(Unit_Test = True, Visualization = True)
-    # arm = H1_ArmController()
+    arm_ik = H1_ArmIK(Unit_Test = True, Visualization = True)
+    arm = H1_ArmController()
 
     # initial positon
     L_tf_target = pin.SE3(

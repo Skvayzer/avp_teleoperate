@@ -3,7 +3,7 @@ from unitree_sdk2py.core.channel import ChannelPublisher, ChannelSubscriber, Cha
 from unitree_sdk2py.idl.unitree_go.msg.dds_ import MotorCmds_, MotorStates_                           # idl
 from unitree_sdk2py.idl.default import unitree_go_msg_dds__MotorCmd_
 
-from teleop.robot_control.hand_retargeting import HandRetargeting, HandType
+from robot_control.hand_retargeting import HandRetargeting, HandType
 import numpy as np
 from enum import IntEnum
 import threading
@@ -17,15 +17,21 @@ kTopicInspireState = "rt/inspire/state"
 
 class Inspire_Controller:
     def __init__(self, left_hand_array, right_hand_array, dual_hand_data_lock = None, dual_hand_state_array = None,
-                       dual_hand_action_array = None, fps = 100.0, Unit_Test = False):
+                       dual_hand_action_array = None, fps = 100.0, Unit_Test = False, port = "lo"):
         print("Initialize Inspire_Controller...")
+        
+        
+
         self.fps = fps
         self.Unit_Test = Unit_Test
         if not self.Unit_Test:
             self.hand_retargeting = HandRetargeting(HandType.INSPIRE_HAND)
         else:
             self.hand_retargeting = HandRetargeting(HandType.INSPIRE_HAND_Unit_Test)
-            ChannelFactoryInitialize(0)
+            ChannelFactoryInitialize(0, "enp3s0f3u2")
+
+
+        
 
         # initialize handcmd publisher and handstate subscriber
         self.HandCmb_publisher = ChannelPublisher(kTopicInspireCommand, MotorCmds_)
@@ -108,8 +114,17 @@ class Inspire_Controller:
                     ref_left_value = left_hand_mat[inspire_tip_indices]
                     ref_right_value = right_hand_mat[inspire_tip_indices]
 
-                    left_q_target  = self.hand_retargeting.left_retargeting.retarget(ref_left_value)[self.hand_retargeting.left_dex_retargeting_to_hardware]
-                    right_q_target = self.hand_retargeting.right_retargeting.retarget(ref_right_value)[self.hand_retargeting.right_dex_retargeting_to_hardware]
+
+                    if not self.Unit_Test:
+                        left_q_target  = self.hand_retargeting.left_retargeting.retarget(ref_left_value)[self.hand_retargeting.left_dex_retargeting_to_hardware]
+                        right_q_target = self.hand_retargeting.right_retargeting.retarget(ref_right_value)[self.hand_retargeting.right_dex_retargeting_to_hardware]
+                    else:
+                        left_q_target = left_hand_array[:6] 
+                        right_q_target = right_hand_array[:6]
+                    
+                    print(left_q_target)
+                    print(right_q_target)
+                        
 
                     # In website https://support.unitree.com/home/en/G1_developer/inspire_dfx_dexterous_hand, you can find
                     #     In the official document, the angles are in the range [0, 1] ==> 0.0: fully closed  1.0: fully open
@@ -170,3 +185,73 @@ class Inspire_Left_Hand_JointIndex(IntEnum):
     kLeftHandIndex = 9
     kLeftHandThumbBend = 10
     kLeftHandThumbRotation = 11
+
+
+if __name__ == "__main__":
+    import multiprocessing as mp
+    import numpy as np
+    import time
+
+    # Create dummy shared arrays for left and right hand (25*3 for each hand)
+    left_hand_array = mp.Array('d', 25 * 3, lock=True)
+    right_hand_array = mp.Array('d', 25 * 3, lock=True)
+
+    # Fill with some test data (not all zeros)
+    for i in range(25 * 3):
+        left_hand_array[i] = np.random.uniform(-1, 1)
+        right_hand_array[i] = np.random.uniform(-1, 1)
+
+    # Shared arrays for dual hand state and action (2*6 for state, 2*6 for action)
+    dual_hand_state_array = mp.Array('d', 12, lock=True)
+    dual_hand_action_array = mp.Array('d', 12, lock=True)
+    dual_hand_data_lock = mp.Lock()
+
+    # Start the controller (Unit_Test=True disables DDS)
+    controller = Inspire_Controller(
+        left_hand_array,
+        right_hand_array,
+        dual_hand_data_lock=dual_hand_data_lock,
+        dual_hand_state_array=dual_hand_state_array,
+        dual_hand_action_array=dual_hand_action_array,
+        fps=10.0,
+        Unit_Test=True
+    )
+
+    # # Print state and action arrays for a few iterations
+    # for i in range(5):
+    #     with dual_hand_data_lock:
+    #         state = np.array(dual_hand_state_array[:])
+    #         action = np.array(dual_hand_action_array[:])
+    #     print(f"Iteration {i}: State: {state}, Action: {action}")
+    #     time.sleep(0.5)
+
+    # print("Test complete.")
+    def create_hand_position(angles):
+        left_hand_array[:6] = angles
+        right_hand_array[:6] = angles
+
+    # Finger stretching (flat hand) test
+    def stretch_fingers_flat():
+        # Create open hand positions (angles of 0.0 for open)
+        open_angles = [0.0] * 6
+        create_hand_position(open_angles)
+        
+
+    # Make fist test
+    def make_fist():
+        # Create closed hand positions (angles of 1.5 for closed, 0.4 for thumb)
+        closed_angles = [1.7] * 6
+        create_hand_position(closed_angles)
+     
+
+    print("\nTesting finger stretching (flat hand)...")
+    stretch_fingers_flat()
+    time.sleep(1)
+    with dual_hand_data_lock:
+        print("Flat hand action:", np.array(dual_hand_action_array[:]))
+
+    print("\nTesting make fist...")
+    make_fist()
+    time.sleep(1)
+    with dual_hand_data_lock:
+        print("Fist action:", np.array(dual_hand_action_array[:]))
