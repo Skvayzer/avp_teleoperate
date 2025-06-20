@@ -28,7 +28,7 @@ class Inspire_Controller:
             self.hand_retargeting = HandRetargeting(HandType.INSPIRE_HAND)
         else:
             self.hand_retargeting = HandRetargeting(HandType.INSPIRE_HAND_Unit_Test)
-            ChannelFactoryInitialize(0, "enp3s0f3u2")
+            ChannelFactoryInitialize(0, port)
 
 
         
